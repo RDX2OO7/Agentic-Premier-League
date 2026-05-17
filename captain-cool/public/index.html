@@ -442,6 +442,51 @@
       letter-spacing: -0.5px;
     }
 
+    /* TTS Speaker Button */
+    .tts-btn {
+      background: linear-gradient(135deg, var(--neon-gold), #d97706);
+      border: none;
+      color: #050a06;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+      flex-shrink: 0;
+    }
+
+    .tts-btn:hover {
+      transform: scale(1.15);
+      box-shadow: 0 0 25px rgba(251, 191, 36, 0.5);
+    }
+
+    .tts-btn.speaking {
+      animation: speakerPulse 1s ease-in-out infinite;
+      background: linear-gradient(135deg, var(--neon-green), #15803d);
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+    }
+
+    .tts-btn.speaking i::before {
+      content: "\f028";
+    }
+
+    @keyframes speakerPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(34, 197, 94, 0.3); }
+      50% { transform: scale(1.1); box-shadow: 0 0 30px rgba(34, 197, 94, 0.6); }
+    }
+
+    .banner-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
     /* TACTICAL DEBATE TIMELINE */
     .timeline-title {
       font-size: 18px;
@@ -936,8 +981,13 @@
             
             <!-- Final Decision Banner (Large & Bold) -->
             <div class="final-decision-banner">
-              <div class="banner-title">
-                <i class="fa-solid fa-trophy"></i> Final Captain's Call
+              <div class="banner-header">
+                <div class="banner-title">
+                  <i class="fa-solid fa-trophy"></i> Final Captain's Call
+                </div>
+                <button id="ttsButton" class="tts-btn" onclick="speakFinalCall()" title="Listen to Captain's Call">
+                  <i class="fa-solid fa-volume-high"></i>
+                </button>
               </div>
               <div id="finalDecisionText" class="banner-text">
                 Rotate strike against Bumrah's over and preserve wickets!
@@ -1401,6 +1451,82 @@
       const cleanedDecision = agents.commentator.decision.replace("FINAL DECISION — ", "");
       await typeText("finalDecisionText", cleanedDecision, 8);
       await typeText("commTranscript", agents.commentator.reasoning, 2);
+
+      // 🔊 AUTO-SPEAK the Final Captain's Call + Commentary
+      speakFinalCall();
+    }
+
+    // =============================================
+    // 🔊 TEXT-TO-SPEECH: Speak the Final Captain's Call
+    // =============================================
+    let currentUtterance = null;
+
+    function speakFinalCall() {
+      // Cancel any ongoing speech
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+
+      const finalText = document.getElementById('finalDecisionText').textContent;
+      const commentaryText = document.getElementById('commTranscript').textContent;
+
+      if (!finalText || finalText.trim().length === 0) return;
+
+      // Build the speech script — commentator-style intro + final call + reasoning
+      const speechScript = `Here's the final captain's call! ... ${finalText} ... And here's the full analysis: ... ${commentaryText}`;
+
+      const utterance = new SpeechSynthesisUtterance(speechScript);
+      currentUtterance = utterance;
+
+      // Configure voice settings for a cricket commentator style
+      utterance.rate = 0.95;    // Slightly slower for dramatic effect
+      utterance.pitch = 1.05;   // Slightly higher for energy
+      utterance.volume = 1.0;   // Full volume
+
+      // Try to pick a good English voice
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => 
+        v.lang.startsWith('en') && (v.name.includes('Male') || v.name.includes('David') || v.name.includes('Daniel') || v.name.includes('Google'))
+      ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+
+      // Update button state
+      const btn = document.getElementById('ttsButton');
+      btn.classList.add('speaking');
+      btn.title = 'Speaking... Click to stop';
+
+      utterance.onend = () => {
+        btn.classList.remove('speaking');
+        btn.title = 'Listen to Captain\'s Call';
+        currentUtterance = null;
+      };
+
+      utterance.onerror = () => {
+        btn.classList.remove('speaking');
+        btn.title = 'Listen to Captain\'s Call';
+        currentUtterance = null;
+      };
+
+      // If already speaking (user clicked again), stop it
+      if (btn.classList.contains('speaking') && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        btn.classList.remove('speaking');
+        btn.title = 'Listen to Captain\'s Call';
+        return;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Pre-load voices (some browsers load them async)
+    if (window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
     }
 
     // Dynamic Undercover Captain Title Typewriter Trigger on Page Load
