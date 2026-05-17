@@ -120,6 +120,9 @@ app.post('/api/strategy', async (req, res) => {
   }
 });
 
+// Export app for Vercel serverless
+export default app;
+
 // Start the Express Server
 app.listen(PORT, () => {
   console.log("======================================================================");
