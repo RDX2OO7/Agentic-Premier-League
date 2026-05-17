@@ -1,9 +1,12 @@
-/**
- * Stats Analyst Agent - "Captain Cool" Multi-Agent Strategy System
- * Focuses on historical statistics, matchups, and player profiles.
- */
 import { GoogleGenAI } from '@google/genai';
-import { getPlayerStats, getMatchupStats } from '../tools/cricketStats.js';
+import { 
+  getPlayerStats, 
+  getMatchupStats,
+  getBowlerVsBatsmanRecord,
+  getVenueStats,
+  getBowlerVsBatsmanRecordTool,
+  getVenueStatsTool
+} from '../tools/cricketStats.js';
 
 /**
  * Stats Analyst Agent
@@ -12,14 +15,14 @@ import { getPlayerStats, getMatchupStats } from '../tools/cricketStats.js';
  * @returns {object} { decision, reasoning }
  */
 export default async function statsAnalyst(matchState, context = {}) {
-  const { batsmen = [], bowler = {}, pitchCondition = "Balanced" } = matchState;
+  const { batsmen = [], bowler = {}, pitchCondition = "Balanced", venue = "Wankhede Stadium, Mumbai" } = matchState;
   
   // Find active striker and non-striker
   const striker = batsmen.find(b => b.isStriker) || batsmen[0];
   const nonStriker = batsmen.find(b => !b.isStriker) || batsmen[1];
   const activeBowler = bowler;
 
-  // Retrieve statistical matchups from our tools
+  // Retrieve statistical matchups from our local tools
   let strikerStats = null;
   let nonStrikerStats = null;
   let bowlerStats = null;
@@ -31,7 +34,7 @@ export default async function statsAnalyst(matchState, context = {}) {
     if (activeBowler) bowlerStats = await getPlayerStats(activeBowler.name);
     if (striker && activeBowler) matchupStats = await getMatchupStats(striker.name, activeBowler.name);
   } catch (err) {
-    console.error("Stats Analyst tool query error:", err);
+    console.error("Stats Analyst local tool query error:", err);
   }
 
   // Check for Gemini API Key. If missing, use our intelligent local fallback system.
@@ -42,18 +45,29 @@ export default async function statsAnalyst(matchState, context = {}) {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
-    const prompt = `
+    let systemInstructions = `
       You are the Stats Analyst agent in a highly advanced multi-agent IPL cricket strategy system called "Captain Cool".
       Your role is to analyze raw players statistics, current matchup details, and pitch conditions to identify
       tactical advantages, weaknesses, and key numerical insights.
 
+      You have access to Cricbuzz unofficial API tools:
+      - 'getBowlerVsBatsmanRecord' (bowlerName, batsmanName)
+      - 'getVenueStats' (venue, playerName)
+      
+      You MUST call these tools to obtain the exact head-to-head matchup records and stadium averages for active players before concluding your analysis.
+    `;
+
+    const prompt = `
+      ${systemInstructions}
+
       **Current Match State:**
+      - Venue: ${venue}
       - Pitch Condition: ${pitchCondition}
       - Batsman on Strike: ${striker ? striker.name : 'Unknown'} (Runs: ${striker ? striker.runs : 0}, Balls: ${striker ? striker.balls : 0})
       - Non-striker Batsman: ${nonStriker ? nonStriker.name : 'Unknown'} (Runs: ${nonStriker ? nonStriker.runs : 0}, Balls: ${nonStriker ? nonStriker.balls : 0})
       - Bowler: ${activeBowler ? activeBowler.name : 'Unknown'} (Overs: ${activeBowler ? activeBowler.overs : 0}, Wickets: ${activeBowler ? activeBowler.wickets : 0}, Runs Conceded: ${activeBowler ? activeBowler.runs : 0})
       
-      **Player Stats (Historical database):**
+      **Overall Player Stats (Historical baseline):**
       - Striker Stats: ${JSON.stringify(strikerStats)}
       - Non-Striker Stats: ${JSON.stringify(nonStrikerStats)}
       - Bowler Stats: ${JSON.stringify(bowlerStats)}
@@ -61,33 +75,89 @@ export default async function statsAnalyst(matchState, context = {}) {
 
       **Your Task:**
       Perform a rigorous statistical analysis. Identify:
-      1. How the batsman performs against this bowler style (pace vs spin, matchup record).
-      2. The striker's recent form index and vulnerabilities.
+      1. How the batsman performs against this bowler style (use getBowlerVsBatsmanRecord for head-to-head metrics).
+      2. The striker's historical venue averages and strike rate (use getVenueStats at ${venue}).
       3. The bowler's effectiveness in this particular phase of the game (powerplay, middle, or death overs).
-      4. What the statistics suggest is the single highest-probability matchup advantage (e.g. bowler has the upper hand, batsman scores heavily at a specific length, spin bottleneck).
+      4. What the statistics suggest is the single highest-probability matchup advantage.
 
-      Format your output as a JSON object containing:
-      - 'decision': A highly concise statistical summary of the matchup (e.g., "Bumrah dominates Dhoni at the death (Dhoni SR 94.9%); bowling team has 74% advantage in this over.")
+      Format your final response as a JSON object containing:
+      - 'decision': A highly concise statistical summary of the matchup (e.g., "Bumrah dominates Dube at Wankhede: dismissals: 1, economy: 6.80, batsman venue SR: 162.80%").
       - 'reasoning': A detailed analysis bullet points outlining player forms, historical averages, strike-rates vs bowler's styling, phase-specific analysis, and pitch compatibility.
     `;
 
-    const response = await ai.models.generateContent({
+    // Configure tools
+    const config = {
+      tools: [{ functionDeclarations: [getBowlerVsBatsmanRecordTool, getVenueStatsTool] }]
+    };
+
+    // First turn to request tool execution
+    let response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            decision: { type: 'STRING' },
-            reasoning: { type: 'STRING' }
-          },
-          required: ['decision', 'reasoning']
-        }
-      }
+      config: config
     });
 
-    const result = JSON.parse(response.text.trim());
+    let resultText = "";
+    const conversationHistory = [
+      { role: 'user', parts: [{ text: prompt }] }
+    ];
+
+    let turns = 0;
+    // Execute tool calling loop
+    while (response.functionCalls && response.functionCalls.length > 0 && turns < 5) {
+      turns++;
+      const call = response.functionCalls[0];
+      console.log(`🤖 [Stats Analyst] Gemini invoked Tool Call: ${call.name}`, call.args);
+
+      let toolOutput = {};
+      if (call.name === "getBowlerVsBatsmanRecord") {
+        toolOutput = await getBowlerVsBatsmanRecord(call.args.bowlerName, call.args.batsmanName);
+      } else if (call.name === "getVenueStats") {
+        toolOutput = await getVenueStats(call.args.venue, call.args.playerName);
+      }
+
+      conversationHistory.push({ role: 'model', parts: [{ functionCall: call }] });
+      conversationHistory.push({
+        role: 'tool',
+        parts: [{
+          functionResponse: {
+            name: call.name,
+            response: { result: toolOutput }
+          }
+        }]
+      });
+
+      // Get next turn with resolved metrics
+      response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: conversationHistory,
+        config: config
+      });
+    }
+
+    resultText = response.text.trim();
+
+    // Enforce JSON format if not returned as an object
+    if (!resultText.startsWith("{")) {
+      const structuralResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Format the following stats analysis as clean JSON with 'decision' and 'reasoning' fields:\n\n${resultText}`,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              decision: { type: 'STRING' },
+              reasoning: { type: 'STRING' }
+            },
+            required: ['decision', 'reasoning']
+          }
+        }
+      });
+      resultText = structuralResponse.text.trim();
+    }
+
+    const result = JSON.parse(resultText);
     return {
       decision: result.decision,
       reasoning: result.reasoning
