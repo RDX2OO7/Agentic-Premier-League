@@ -17,7 +17,7 @@ import commentator from './agents/commentator.js';
  * @returns {object} Full step-by-step orchestrator report and debate transcript
  */
 export async function runCaptainCool(rawMatchState) {
-  console.log("\n[Orchestrator] Starting Captain Cool Multi-Agent Strategy Engine...");
+  console.log("\n[Orchestrator] Starting Undercover Captain Multi-Agent Strategy Engine...");
 
   // Validate and sanitize the match state
   const matchState = validateMatchState(rawMatchState);

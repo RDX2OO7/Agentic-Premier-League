@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Captain Cool - IPL Cricket Multi-Agent Strategy Engine</title>
+  <title>Undercover Captain - IPL Cricket Multi-Agent Strategy Engine</title>
   <!-- Premium Outfit and JetBrains Mono Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -754,7 +754,7 @@
           <i class="fa-solid fa-cricket-bat-ball"></i>
         </div>
         <div class="logo-title">
-          <h1>CAPTAIN COOL</h1>
+          <h1>UNDERCOVER CAPTAIN</h1>
           <p>Multi-Agent IPL Cricket Strategy System</p>
         </div>
       </div>
@@ -1199,7 +1199,7 @@
         "Analyzing historical player matchups...",
         "Formulating initial tactical setup...",
         "Challenging strategy for blind spots (Devil's Advocate)...",
-        "Captain Cool locking in refined over adjustments...",
+        "Undercover Captain locking in refined over adjustments...",
         "Ready! Transmitting script to broadcast box..."
       ];
       
@@ -1241,9 +1241,32 @@
       }
     }
 
+    // Typewriter effect helper
+    function typeText(elementId, text, speed = 8) {
+      return new Promise((resolve) => {
+        const element = document.getElementById(elementId);
+        if (!element) {
+          resolve();
+          return;
+        }
+        element.textContent = "";
+        let i = 0;
+        function type() {
+          if (i < text.length) {
+            element.textContent += text.charAt(i);
+            i++;
+            setTimeout(type, speed);
+          } else {
+            resolve();
+          }
+        }
+        type();
+      });
+    }
+
     // Render results in Dashboard
-    function renderResults(data) {
-      // 1. Update Metrics
+    async function renderResults(data) {
+      // 1. Update Scoreboard Metrics instantly
       document.getElementById("lblBattingTeam").textContent = data.matchState.battingTeam;
       document.getElementById("lblBowlingTeam").textContent = data.matchState.bowlingTeam;
 
@@ -1264,22 +1287,36 @@
       document.getElementById("matchupBatsman").textContent = striker ? striker.name : "--";
       document.getElementById("matchupBowler").textContent = data.matchState.bowler ? data.matchState.bowler.name : "--";
 
-      // 2. Agents Card Injection
+      // Clear all agent cards & title values to start typewriter fresh
+      document.getElementById("finalDecisionText").textContent = "";
+      document.getElementById("agentStatsDecision").textContent = "";
+      document.getElementById("agentStatsReasoning").textContent = "";
+      document.getElementById("agentStratInitDecision").textContent = "";
+      document.getElementById("agentStratInitReasoning").textContent = "";
+      document.getElementById("agentDevilsDecision").textContent = "";
+      document.getElementById("agentDevilsReasoning").textContent = "";
+      document.getElementById("agentStratRefDecision").textContent = "";
+      document.getElementById("agentStratRefReasoning").textContent = "";
+      document.getElementById("commHeadline").textContent = "";
+      document.getElementById("commTranscript").textContent = "";
+
+      // Swap overlay states to show the boards
+      document.getElementById("loaderOverlay").style.display = "none";
+      document.getElementById("simulationContent").style.display = "block";
+
       const agents = data.agents;
-      
-      // Stats Analyst
-      document.getElementById("agentStatsDecision").textContent = agents.statsAnalyst.decision;
-      document.getElementById("agentStatsReasoning").textContent = agents.statsAnalyst.reasoning;
 
-      // Strategist Initial
-      document.getElementById("agentStratInitDecision").textContent = agents.strategistInitial.decision;
-      document.getElementById("agentStratInitReasoning").textContent = agents.strategistInitial.reasoning;
-
-      // Devil's Advocate
-      document.getElementById("agentDevilsDecision").textContent = agents.devilsAdvocate.decision;
-      document.getElementById("agentDevilsReasoning").textContent = agents.devilsAdvocate.reasoning;
+      // --- Start Sequentially Staggered Debate Typing ---
       
-      // Devil's Advocate Severity Badge Color Adjustments
+      // 1. Stats Analyst Card
+      await typeText("agentStatsDecision", agents.statsAnalyst.decision, 6);
+      await typeText("agentStatsReasoning", agents.statsAnalyst.reasoning, 3);
+
+      // 2. Strategist (Initial Brain) Card
+      await typeText("agentStratInitDecision", agents.strategistInitial.decision, 6);
+      await typeText("agentStratInitReasoning", agents.strategistInitial.reasoning, 3);
+
+      // 3. Devil's Advocate Audit Card
       const devilsBadge = document.getElementById("devilsBadge");
       const severity = (agents.devilsAdvocate.severity || "medium").toUpperCase();
       devilsBadge.textContent = "3. Risks Audited (" + severity + ")";
@@ -1290,35 +1327,31 @@
         devilsBadge.style.background = "rgba(251, 191, 36, 0.1)";
         devilsBadge.style.color = "var(--neon-gold)";
       }
+      await typeText("agentDevilsDecision", agents.devilsAdvocate.decision, 6);
+      await typeText("agentDevilsReasoning", agents.devilsAdvocate.reasoning, 3);
 
-      // Strategist Refined
+      // 4. Strategist Refined Card
       const hasRevision = JSON.stringify(agents.strategistInitial) !== JSON.stringify(agents.strategistRefined);
       const stratRefBadge = document.getElementById("stratRefBadge");
       if (hasRevision) {
         stratRefBadge.textContent = "4. PIVOT TRIGGERED";
         stratRefBadge.style.background = "rgba(34, 197, 94, 0.15)";
         stratRefBadge.style.color = "var(--neon-green)";
-        document.getElementById("agentStratRefDecision").textContent = agents.strategistRefined.decision;
-        document.getElementById("agentStratRefReasoning").textContent = agents.strategistRefined.reasoning;
+        await typeText("agentStratRefDecision", agents.strategistRefined.decision, 6);
+        await typeText("agentStratRefReasoning", agents.strategistRefined.reasoning, 3);
       } else {
         stratRefBadge.textContent = "4. INITIAL VALIDATED";
         stratRefBadge.style.background = "rgba(255, 255, 255, 0.05)";
         stratRefBadge.style.color = "var(--color-text-muted)";
-        document.getElementById("agentStratRefDecision").textContent = "[Skipped] No high-severity risks identified.";
-        document.getElementById("agentStratRefReasoning").textContent = "The initial strategy proposed by the tactical brain was evaluated as low-risk. The team has committed to the original blueprint.";
+        await typeText("agentStratRefDecision", "[Skipped] No high-severity risks identified.", 6);
+        await typeText("agentStratRefReasoning", "The initial strategy proposed by the tactical brain was evaluated as low-risk. The team has committed to the original blueprint.", 3);
       }
 
-      // Commentator
-      document.getElementById("commHeadline").textContent = agents.commentator.decision;
-      document.getElementById("commTranscript").textContent = agents.commentator.reasoning;
-
-      // 3. Update Final Decision Banner (Large & Bold)
+      // 5. Commentator Box & Headline Banner
+      await typeText("commHeadline", agents.commentator.decision, 6);
       const cleanedDecision = agents.commentator.decision.replace("FINAL DECISION — ", "");
-      document.getElementById("finalDecisionText").textContent = cleanedDecision;
-
-      // Swap overlay states
-      document.getElementById("loaderOverlay").style.display = "none";
-      document.getElementById("simulationContent").style.display = "block";
+      await typeText("finalDecisionText", cleanedDecision, 8);
+      await typeText("commTranscript", agents.commentator.reasoning, 2);
     }
   </script>
 </body>

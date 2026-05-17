@@ -99,7 +99,7 @@ app.post('/api/strategy', async (req, res) => {
 // Start the Express Server
 app.listen(PORT, () => {
   console.log("======================================================================");
-  console.log(" 🏏 CAPTAIN COOL: MULTI-AGENT IPL CRICKET STRATEGY ENGINE");
+  console.log(" 🏏 UNDERCOVER CAPTAIN: MULTI-AGENT IPL CRICKET STRATEGY ENGINE");
   console.log("======================================================================");
   console.log(`📡 Server running on: http://localhost:${PORT}`);
   console.log(`🌐 Visual Dashboard:  http://localhost:${PORT}/index.html`);
