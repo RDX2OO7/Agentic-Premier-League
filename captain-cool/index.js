@@ -8,7 +8,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { runStrategySystem } from './orchestrator.js';
-import { PRESET_SCENARIOS, validateMatchState } from './matchState.js';
+import { PRESET_SCENARIOS, validateMatchState, IPLMatchState } from './matchState.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,7 +27,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/scenarios', (req, res) => {
   res.json({
     success: true,
-    scenarios: Object.values(PRESET_SCENARIOS)
+    scenarios: Object.values(PRESET_SCENARIOS).map(s => {
+      const state = new IPLMatchState(s);
+      return {
+        ...s,
+        ...state
+      };
+    })
   });
 });
 

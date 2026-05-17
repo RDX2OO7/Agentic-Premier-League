@@ -3,8 +3,197 @@
  * Defines schemas, validates custom match states, and holds pre-configured legendary IPL preset scenarios.
  */
 
+/**
+ * Complete IPL Match State Schema represented as a JavaScript Class
+ */
+export class IPLMatchState {
+  /**
+   * Constructs an IPLMatchState instance
+   * Supports both the new rich object schema and flat legacy properties.
+   * @param {object} data - Match state fields
+   */
+  constructor(data = {}) {
+    // --- Direct Schema Fields ---
+    this.battingTeam = data.battingTeam || "Chasing Team";
+    this.bowlingTeam = data.bowlingTeam || "Defending Team";
+    this.innings = data.innings || 2; // 1 or 2
+    
+    // Core game state
+    this.currentScore = data.currentScore !== undefined ? data.currentScore : (data.runs || 0);
+    this.wickets = data.wickets !== undefined ? data.wickets : 0;
+    
+    // Parse overs (e.g. 15.0) into discrete over and ball values
+    if (data.over !== undefined) {
+      this.over = data.over;
+      this.ball = data.ball || 0;
+    } else if (data.overs !== undefined) {
+      this.over = Math.floor(data.overs);
+      this.ball = Math.round((data.overs - this.over) * 10);
+    } else {
+      this.over = 0;
+      this.ball = 0;
+    }
+
+    // Striker (name, runs, balls, recentForm)
+    if (data.striker) {
+      this.striker = {
+        name: data.striker.name || "Striker",
+        runs: data.striker.runs !== undefined ? data.striker.runs : 0,
+        balls: data.striker.balls !== undefined ? data.striker.balls : 0,
+        recentForm: Array.isArray(data.striker.recentForm) ? data.striker.recentForm : []
+      };
+    } else if (data.batsmen && data.batsmen.length > 0) {
+      const s = data.batsmen.find(b => b.isStriker) || data.batsmen[0];
+      this.striker = {
+        name: s.name || "Striker",
+        runs: s.runs || 0,
+        balls: s.balls || 0,
+        recentForm: s.recentForm || [24, 45, 12, 68, 18]
+      };
+    } else {
+      this.striker = { name: "Striker", runs: 0, balls: 0, recentForm: [] };
+    }
+
+    // NonStriker (name, runs, balls)
+    if (data.nonStriker) {
+      this.nonStriker = {
+        name: data.nonStriker.name || "Non-Striker",
+        runs: data.nonStriker.runs !== undefined ? data.nonStriker.runs : 0,
+        balls: data.nonStriker.balls !== undefined ? data.nonStriker.balls : 0
+      };
+    } else if (data.batsmen && data.batsmen.length > 1) {
+      const ns = data.batsmen.find(b => !b.isStriker) || data.batsmen[1];
+      this.nonStriker = {
+        name: ns.name || "Non-Striker",
+        runs: ns.runs || 0,
+        balls: ns.balls || 0
+      };
+    } else {
+      this.nonStriker = { name: "Non-Striker", runs: 0, balls: 0 };
+    }
+
+    // Bowlers Available: array of { name, oversBowled, economy, recentForm }
+    if (Array.isArray(data.bowlersAvailable)) {
+      this.bowlersAvailable = data.bowlersAvailable.map(b => ({
+        name: b.name || "Bowler",
+        oversBowled: b.oversBowled !== undefined ? b.oversBowled : 0,
+        economy: b.economy !== undefined ? b.economy : 7.0,
+        recentForm: Array.isArray(b.recentForm) ? b.recentForm : []
+      }));
+    } else if (data.bowler) {
+      this.bowlersAvailable = [
+        {
+          name: data.bowler.name || "Active Bowler",
+          oversBowled: data.bowler.overs || 0,
+          economy: 7.5,
+          recentForm: [1, 2, 0, 1, 1]
+        }
+      ];
+    } else {
+      this.bowlersAvailable = [];
+    }
+
+    // Pitch conditions: { surface, dew, venue }
+    if (data.pitchConditions) {
+      this.pitchConditions = {
+        surface: data.pitchConditions.surface || "Balanced",
+        dew: data.pitchConditions.dew !== undefined ? data.pitchConditions.dew : false,
+        venue: data.pitchConditions.venue || "IPL Venue"
+      };
+    } else if (data.pitchCondition) {
+      this.pitchConditions = {
+        surface: data.pitchCondition,
+        dew: data.pitchCondition.toLowerCase().includes("dew"),
+        venue: "IPL Venue"
+      };
+    } else {
+      this.pitchConditions = { surface: "Balanced", dew: false, venue: "IPL Venue" };
+    }
+
+    // Inning specific metrics
+    this.targetScore = data.targetScore !== undefined ? data.targetScore : (data.target || null);
+    
+    // Automatically calculate or fall back
+    const totalBallsBowled = (this.over * 6) + this.ball;
+    const ballsRemaining = 120 - totalBallsBowled;
+    
+    this.currentRunRate = data.currentRunRate || (totalBallsBowled > 0 ? parseFloat(((this.currentScore / totalBallsBowled) * 6).toFixed(2)) : 0.0);
+    
+    if (this.targetScore) {
+      const runsNeeded = this.targetScore - this.currentScore;
+      this.requiredRunRate = data.requiredRunRate || (ballsRemaining > 0 ? parseFloat(((runsNeeded / ballsRemaining) * 6).toFixed(2)) : 0.0);
+    } else {
+      this.requiredRunRate = 0.0;
+    }
+
+    this.impactPlayerAvailable = data.impactPlayerAvailable !== undefined ? data.impactPlayerAvailable : true;
+    this.powerplayActive = data.powerplayActive !== undefined ? data.powerplayActive : (this.over < 6);
+    this.deathOversActive = data.deathOversActive !== undefined ? data.deathOversActive : (this.over >= 15);
+    
+    // recentBalls: last 12 balls as string
+    this.recentBalls = data.recentBalls || (data.recentDeliveries ? data.recentDeliveries.join(",") : "");
+
+    // --- Legacy Fields Mapped for Seamless System Compatibility ---
+    // (Ensures backward compatibility with winProbability tool and agents without rewriting them)
+    this.runs = this.currentScore;
+    this.overs = parseFloat((this.over + (this.ball / 6)).toFixed(1));
+    this.target = this.targetScore;
+    this.pitchCondition = `${this.pitchConditions.surface} at ${this.pitchConditions.venue}${this.pitchConditions.dew ? ' (Heavy Dew)' : ' (No Dew)'}`;
+    this.batsmen = [
+      { name: this.striker.name, runs: this.striker.runs, balls: this.striker.balls, isStriker: true, recentForm: this.striker.recentForm },
+      { name: this.nonStriker.name, runs: this.nonStriker.runs, balls: this.nonStriker.balls, isStriker: false }
+    ];
+    this.bowler = {
+      name: this.bowlersAvailable[0]?.name || "Active Bowler",
+      overs: this.bowlersAvailable[0]?.oversBowled || 0,
+      wickets: 0,
+      runs: 0
+    };
+    this.recentDeliveries = this.recentBalls ? this.recentBalls.split(',').map(s => s.trim()) : [];
+  }
+}
+
 // Classic, high-tension IPL match scenarios to test the agentic reasoning out-of-the-box
 export const PRESET_SCENARIOS = {
+  "CSK_VS_MI_OVER_15": {
+    id: "CSK_VS_MI_OVER_15",
+    title: "CSK vs MI: Wankhede 15th-Over Spin Crucible",
+    description: "CSK is chasing 185 against arch-rivals Mumbai Indians. Shivam Dube (striker) is striking well on 34, while skipper Ruturaj Gaikwad anchors on 54. MI has Jasprit Bumrah with 2 death overs remaining. Heavy dew is settling in, making ball-gripping a nightmare. RRR is 13.0 RPO. What is the play?",
+    battingTeam: "Chennai Super Kings",
+    bowlingTeam: "Mumbai Indians",
+    innings: 2,
+    over: 15,
+    ball: 0,
+    currentScore: 120,
+    wickets: 3,
+    targetScore: 185,
+    striker: {
+      name: "Shivam Dube",
+      runs: 34,
+      balls: 18,
+      recentForm: [15, 45, 28, 62, 10]
+    },
+    nonStriker: {
+      name: "Ruturaj Gaikwad",
+      runs: 54,
+      balls: 38
+    },
+    bowlersAvailable: [
+      { name: "Jasprit Bumrah", oversBowled: 2.0, economy: 5.5, recentForm: [2, 1, 3, 0, 1] },
+      { name: "Gerald Coetzee", oversBowled: 3.0, economy: 9.2, recentForm: [1, 2, 0, 2, 1] },
+      { name: "Piyush Chawla", oversBowled: 3.0, economy: 7.8, recentForm: [0, 1, 1, 2, 0] },
+      { name: "Hardik Pandya", oversBowled: 2.0, economy: 8.5, recentForm: [1, 0, 1, 1, 2] }
+    ],
+    pitchConditions: {
+      surface: "True batting surface, quick outfield",
+      dew: true,
+      venue: "Wankhede Stadium, Mumbai"
+    },
+    impactPlayerAvailable: true,
+    powerplayActive: false,
+    deathOversActive: true,
+    recentBalls: "1,4,1,6,W,1,0,2,1,4,1,1"
+  },
   "IPL_2019_FINAL": {
     id: "IPL_2019_FINAL",
     title: "IPL 2019 Final: MI vs CSK Last-Over Thriller",
@@ -12,17 +201,26 @@ export const PRESET_SCENARIOS = {
     battingTeam: "Chennai Super Kings",
     bowlingTeam: "Mumbai Indians",
     innings: 2,
-    runs: 141,
+    over: 19,
+    ball: 0,
+    currentScore: 141,
     wickets: 7,
-    overs: 19.0, // Last over starts
-    target: 150,
-    pitchCondition: "Dry, slow, high cracking pressure, some dew",
-    batsmen: [
-      { name: "Shardul Thakur", runs: 2, balls: 1, isStriker: true },
-      { name: "Ravindra Jadeja", runs: 38, balls: 24, isStriker: false }
+    targetScore: 150,
+    striker: { name: "Shardul Thakur", runs: 2, balls: 1, recentForm: [2, 0, 8, 12, 1] },
+    nonStriker: { name: "Ravindra Jadeja", runs: 38, balls: 24 },
+    bowlersAvailable: [
+      { name: "Lasith Malinga", oversBowled: 3.0, economy: 14.0, recentForm: [0, 0, 2, 1, 0] },
+      { name: "Jasprit Bumrah", oversBowled: 4.0, economy: 3.5, recentForm: [2, 1, 2, 0, 1] }
     ],
-    bowler: { name: "Lasith Malinga", overs: 3.0, wickets: 0, runs: 42 },
-    recentDeliveries: ["1", "4", "W", "2", "1", "W"] // Previous over
+    pitchConditions: {
+      surface: "Dry, slow with high cracking pressure",
+      dew: true,
+      venue: "Rajiv Gandhi International Cricket Stadium, Hyderabad"
+    },
+    impactPlayerAvailable: false,
+    powerplayActive: false,
+    deathOversActive: true,
+    recentBalls: "1,4,W,2,1,W"
   },
   "KLAASEN_VS_RASHID": {
     id: "KLAASEN_VS_RASHID",
@@ -31,85 +229,40 @@ export const PRESET_SCENARIOS = {
     battingTeam: "Sunrisers Hyderabad",
     bowlingTeam: "Gujarat Titans",
     innings: 2,
-    runs: 130,
+    over: 13,
+    ball: 0,
+    currentScore: 130,
     wickets: 3,
-    overs: 13.0,
-    target: 180,
-    pitchCondition: "Dusty, turning pitch with significant grip",
-    batsmen: [
-      { name: "Heinrich Klaasen", runs: 45, balls: 18, isStriker: true },
-      { name: "Nitish Reddy", runs: 12, balls: 10, isStriker: false }
+    targetScore: 180,
+    striker: { name: "Heinrich Klaasen", runs: 45, balls: 18, recentForm: [42, 67, 10, 56, 4] },
+    nonStriker: { name: "Nitish Reddy", runs: 12, balls: 10 },
+    bowlersAvailable: [
+      { name: "Rashid Khan", oversBowled: 2.0, economy: 6.0, recentForm: [1, 2, 0, 1, 2] },
+      { name: "Pat Cummins", oversBowled: 1.0, economy: 8.0, recentForm: [2, 3, 1, 0, 2] }
     ],
-    bowler: { name: "Rashid Khan", overs: 2.0, wickets: 1, runs: 12 },
-    recentDeliveries: ["1", "6", "0", "1", "4", "1"]
-  },
-  "KOHLI_DEATH_CHASE": {
-    id: "KOHLI_DEATH_CHASE",
-    title: "King Kohli Chasing at the Death: RCB vs MI",
-    description: "RCB needs 42 runs from 18 balls. Virat Kohli is batting on 78* off 48 balls. Jasprit Bumrah is brought on to bowl the 18th over. Does Kohli attack Bumrah, or play him out to target other bowlers?",
-    battingTeam: "Royal Challengers Bengaluru",
-    bowlingTeam: "Mumbai Indians",
-    innings: 2,
-    runs: 158,
-    wickets: 4,
-    overs: 17.0, // 3 overs left
-    target: 200,
-    pitchCondition: "Flat deck, fast outfield, small boundaries",
-    batsmen: [
-      { name: "Virat Kohli", runs: 78, balls: 48, isStriker: true },
-      { name: "Dinesh Karthik", runs: 4, balls: 2, isStriker: false }
-    ],
-    bowler: { name: "Jasprit Bumrah", overs: 2.0, wickets: 1, runs: 10 },
-    recentDeliveries: ["6", "1", "w", "4", "1", "2"]
+    pitchConditions: {
+      surface: "Dusty turning pitch with significant grip",
+      dew: false,
+      venue: "Narendra Modi Stadium, Ahmedabad"
+    },
+    impactPlayerAvailable: true,
+    powerplayActive: false,
+    deathOversActive: false,
+    recentBalls: "1,6,0,1,4,1"
   }
 };
 
 /**
  * Validates and sanitizes a match state object
+ * Automatically returns a robust IPLMatchState instance.
  * @param {object} state - The match state to validate
- * @returns {object} Validated and complete match state
+ * @returns {IPLMatchState} Validated and complete match state
  */
 export function validateMatchState(state) {
-  if (!state || typeof state !== "object") {
-    throw new Error("Invalid match state: state must be a valid object.");
+  if (state instanceof IPLMatchState) {
+    return state;
   }
-
-  const defaultState = {
-    battingTeam: "Chasing Team",
-    bowlingTeam: "Defending Team",
-    innings: 2,
-    runs: 0,
-    wickets: 0,
-    overs: 0,
-    target: null,
-    pitchCondition: "Balanced",
-    batsmen: [],
-    bowler: { name: "Bowler", overs: 0, wickets: 0, runs: 0 },
-    recentDeliveries: []
-  };
-
-  const validated = { ...defaultState, ...state };
-
-  // Ensure batsmen format is correct
-  if (!Array.isArray(validated.batsmen) || validated.batsmen.length === 0) {
-    validated.batsmen = [
-      { name: "Batsman 1", runs: 0, balls: 0, isStriker: true },
-      { name: "Batsman 2", runs: 0, balls: 0, isStriker: false }
-    ];
-  } else {
-    // Ensure striker flag is present
-    const hasStriker = validated.batsmen.some(b => b.isStriker);
-    if (!hasStriker && validated.batsmen.length > 0) {
-      validated.batsmen[0].isStriker = true;
-    }
-  }
-
-  // Ensure bowler details exist
-  if (!validated.bowler || typeof validated.bowler !== "object") {
-    validated.bowler = { name: "Bowler", overs: 0, wickets: 0, runs: 0 };
-  }
-
-  return validated;
+  return new IPLMatchState(state);
 }
 
 /**
@@ -119,30 +272,39 @@ export function validateMatchState(state) {
  */
 export function formatMatchStateSummary(state) {
   const s = validateMatchState(state);
-  const runsNeeded = s.target ? s.target - s.runs : 0;
+  const runsNeeded = s.targetScore ? s.targetScore - s.currentScore : 0;
   
-  const overInt = Math.floor(s.overs);
-  const overFrac = Math.round((s.overs - overInt) * 10);
-  const ballsBowled = (overInt * 6) + overFrac;
-  const ballsRemaining = 120 - ballsBowled;
+  const totalBallsBowled = (s.over * 6) + s.ball;
+  const ballsRemaining = 120 - totalBallsBowled;
 
   let summary = `[Match Context]: ${s.battingTeam} is batting against ${s.bowlingTeam}.\n`;
-  summary += `Current score: ${s.runs}/${s.wickets} in ${s.overs} overs.\n`;
+  summary += `Current score: ${s.currentScore}/${s.wickets} in ${s.over}.${s.ball} overs.\n`;
   
-  if (s.innings === 2 && s.target) {
-    summary += `Chasing a target of ${s.target}. Needs ${runsNeeded} runs in ${ballsRemaining} balls.\n`;
+  if (s.innings === 2 && s.targetScore) {
+    summary += `Chasing a target of ${s.targetScore}. Needs ${runsNeeded} runs in ${ballsRemaining} balls (RRR: ${s.requiredRunRate} RPO vs CRR: ${s.currentRunRate} RPO).\n`;
   } else {
-    summary += `Innings 1. Setting a target.\n`;
+    summary += `Innings 1. Setting a target (CRR: ${s.currentRunRate} RPO).\n`;
   }
 
-  summary += `Pitch: ${s.pitchCondition}.\n`;
+  summary += `Venue: ${s.pitchConditions.venue} | Pitch Surface: ${s.pitchConditions.surface} | Dew: ${s.pitchConditions.dew ? 'Yes' : 'No'}.\n`;
+  summary += `Powerplay Active: ${s.powerplayActive ? 'Yes' : 'No'} | Death Overs Active: ${s.deathOversActive ? 'Yes' : 'No'}.\n`;
   
-  const striker = s.batsmen.find(b => b.isStriker);
-  const nonStriker = s.batsmen.find(b => !b.isStriker);
+  if (s.striker) {
+    summary += `On Strike: ${s.striker.name} (${s.striker.runs} runs off ${s.striker.balls} balls, recent IPL form: [${(s.striker.recentForm || []).join(', ')}]).\n`;
+  }
+  if (s.nonStriker) {
+    summary += `Non-Striker: ${s.nonStriker.name} (${s.nonStriker.runs} runs off ${s.nonStriker.balls} balls).\n`;
+  }
   
-  if (striker) summary += `On Strike: ${striker.name} (${striker.runs} runs off ${striker.balls} balls).\n`;
-  if (nonStriker) summary += `Non-Striker: ${nonStriker.name} (${nonStriker.runs} runs off ${nonStriker.balls} balls).\n`;
-  if (s.bowler) summary += `Active Bowler: ${s.bowler.name} (${s.bowler.overs} overs, ${s.bowler.wickets} wickets, conceding ${s.bowler.runs} runs).\n`;
+  if (s.bowlersAvailable && s.bowlersAvailable.length > 0) {
+    summary += `Available Bowlers for the inning:\n`;
+    s.bowlersAvailable.forEach(b => {
+      summary += `- ${b.name} (${b.oversBowled} overs bowled, Economy: ${b.economy}, recent form: [${(b.recentForm || []).join(', ')}])\n`;
+    });
+  }
   
   return summary;
 }
+
+// Export a sample match state for CSK vs MI, over 15, 2nd innings, target 185, score 120/3
+export const SAMPLE_MATCH_STATE = new IPLMatchState(PRESET_SCENARIOS.CSK_VS_MI_OVER_15);
