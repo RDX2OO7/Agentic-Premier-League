@@ -754,7 +754,7 @@
           <i class="fa-solid fa-cricket-bat-ball"></i>
         </div>
         <div class="logo-title">
-          <h1>UNDERCOVER CAPTAIN</h1>
+          <h1 id="mainAppTitle"></h1>
           <p>Multi-Agent IPL Cricket Strategy System</p>
         </div>
       </div>
@@ -1353,6 +1353,9 @@
       await typeText("finalDecisionText", cleanedDecision, 8);
       await typeText("commTranscript", agents.commentator.reasoning, 2);
     }
+
+    // Dynamic Undercover Captain Title Typewriter Trigger on Page Load
+    typeText("mainAppTitle", "UNDERCOVER CAPTAIN", 35);
   </script>
 </body>
 </html>
