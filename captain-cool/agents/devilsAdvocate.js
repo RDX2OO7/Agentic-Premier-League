@@ -1,15 +1,10 @@
-/**
- * Devil's Advocate Agent - "Captain Cool" Multi-Agent Strategy System
- * Critiques the Strategist's proposed plan, pointing out high-risk assumptions, blind spots,
- * and potential counter-strategies that the opponent might execute.
- */
 import { GoogleGenAI } from '@google/genai';
 
 /**
  * Devil's Advocate Agent
  * @param {object} matchState - Current match state
  * @param {object} context - Orchestrator context (contains strategistDecision, statsAnalysis, winProbability)
- * @returns {object} { decision, reasoning }
+ * @returns {object} { challenge, counterDecision, severity, decision, reasoning }
  */
 export default async function devilsAdvocate(matchState, context = {}) {
   const { strategistDecision = "", statsAnalysis = "", winProbability = null } = context;
@@ -22,57 +17,73 @@ export default async function devilsAdvocate(matchState, context = {}) {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const prompt = `
-      You are the Devil's Advocate agent in the "Captain Cool" IPL strategy system.
-      Your primary function is to serve as the critical auditor of the Strategist's proposed plan.
-      You must look for hidden assumptions, tactical flaws, opponent counter-strategies, and high-risk elements.
-      You should be sharp, analytical, skeptical, and highly focused on downside risks.
-
-      **Current Match State:**
-      - Score: ${matchState.runs}/${matchState.wickets} in ${matchState.overs} overs
-      - Pitch Condition: ${matchState.pitchCondition}
-      - Target: ${matchState.target || "N/A"}
-
-      **Proposed Strategy from the Strategist:**
-      "${typeof strategistDecision === 'object' ? JSON.stringify(strategistDecision) : strategistDecision}"
-
-      **Stats Analyst Insights:**
-      "${typeof statsAnalysis === 'object' ? JSON.stringify(statsAnalysis) : statsAnalysis}"
-
-      **Win Probability Metrics:**
-      "${winProbability ? JSON.stringify(winProbability) : "N/A"}"
-
-      **Your Skeptical Assignment:**
-      Examine the proposed strategy closely. Provide a devastatingly critical, highly realistic critique of why this plan might fail:
-      1. What are the key assumptions the strategist is making (e.g. assuming the bowler will execute yorkers flawlessly, or that the batsman won't attack)?
-      2. What is the counter-move the opposing team will make to immediately neutralize this plan (e.g., substituting a left-handed batsman, changing batting pacing, targeting the bowler's slower ball)?
-      3. What are the extreme tail risks (e.g., over-bowling a premium bowler too early, leaving a rookie bowler to defend 8 runs in the final over, or ignoring dew impact)?
-
-      Format your response as a JSON object containing:
-      - 'decision': A highly concentrated summary of the primary threat/flaw in the strategist's plan (e.g., "High Risk: Using Bumrah now leaves 15 runs to defend in the last over by a rookie spinner vs Dhoni.")
-      - 'reasoning': A structured list of distinct vulnerabilities, risk analyses, and opposing team counters.
+    const systemInstructions = `
+      You are the assistant coach who always challenges the captain's first instinct. 
+      Your job is to find flaws in the Strategist's proposed decision. Consider:
+      - What if dew makes spin ineffective?
+      - Is the bowler being brought on actually tired or out of rhythm?
+      - Is the batter due for a big shot?
+      - What does recent form say against this plan?
+      
+      Challenge hard. Propose a counter-decision if the original is wrong.
+      
+      Output JSON format: 
+      {
+        "challenge": "Find the critical flaws in the Strategist's proposed decision. Challenge extremely hard.",
+        "counterDecision": "Your proposed alternative tactical choice to solve the challenge.",
+        "severity": "low or medium or high"
+      }
     `;
 
+    const prompt = `
+      **MATCH STATE:**
+      - Score: ${matchState.runs || matchState.currentScore}/${matchState.wickets} in ${matchState.overs || matchState.over} overs
+      - Pitch Conditions: ${JSON.stringify(matchState.pitchConditions || matchState.pitchCondition)}
+      - Target: ${matchState.target || matchState.targetScore || "N/A"}
+
+      **STRATEGIST'S PROPOSED DECISION (Your Input):**
+      "${typeof strategistDecision === 'object' ? (strategistDecision.decision || JSON.stringify(strategistDecision)) : strategistDecision}"
+
+      **STATS ANALYST'S FINDINGS:**
+      "${typeof statsAnalysis === 'object' ? JSON.stringify(statsAnalysis) : statsAnalysis}"
+
+      **WIN PROBABILITY METRICS:**
+      "${winProbability ? JSON.stringify(winProbability) : "N/A"}"
+    `;
+
+    // Separate Gemini API call with its own system prompt and response schema
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
+        systemInstruction: systemInstructions,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
           properties: {
-            decision: { type: 'STRING' },
-            reasoning: { type: 'STRING' }
+            challenge: { type: 'STRING' },
+            counterDecision: { type: 'STRING' },
+            severity: { 
+              type: 'STRING',
+              enum: ['low', 'medium', 'high']
+            }
           },
-          required: ['decision', 'reasoning']
+          required: ['challenge', 'counterDecision', 'severity']
         }
       }
     });
 
-    const result = JSON.parse(response.text.trim());
+    const resultText = response.text.trim();
+    const result = JSON.parse(resultText);
+
     return {
-      decision: result.decision,
-      reasoning: result.reasoning
+      challenge: result.challenge,
+      counterDecision: result.counterDecision,
+      severity: result.severity,
+      
+      // Backward compatibility for orchestrator and debate loops
+      decision: result.challenge,
+      reasoning: `Counter Decision Proposed: ${result.counterDecision}\nSeverity Threat: ${result.severity.toUpperCase()}`
     };
   } catch (error) {
     console.error("Gemini API call failed in Devil's Advocate, falling back to local simulation:", error);
@@ -82,18 +93,21 @@ export default async function devilsAdvocate(matchState, context = {}) {
 
 function runFallback(matchState, context) {
   const { strategistDecision = "", statsAnalysis = {} } = context;
-  const bowlerName = matchState.bowler?.name || "bowler";
-  const strikerName = matchState.batsmen?.find(b => b.isStriker)?.name || "striker";
+  const strikerName = matchState.batsmen?.find(b => b.isStriker)?.name || "Shivam Dube";
+  const bowlerName = matchState.bowler?.name || "Jasprit Bumrah";
 
-  let decision = "";
-  let reasoning = "";
+  const challenge = `Tactical Risk Warning: The proposed plan relies heavily on perfect bowler length execution and completely ignores ${strikerName}'s explosive trigger against raw pace under heavy dew conditions at Wankhede!`;
+  const counterDecision = `Hold back your main bowler for one over or immediately swap to off-pace cutters, packing the deep backward square leg zone with protection.`;
+  const severity = "high";
 
-  decision = `Tactical Risk Warning: The proposed strategy assumes high bowler execution accuracy and ignores ${strikerName}'s aggressive trigger vs pace.`;
-  reasoning = `Skeptical review of: "${typeof strategistDecision === 'object' ? strategistDecision.decision : strategistDecision}"
-- Vulnerability 1: Over-reliance on ${bowlerName} maintaining a perfect line. If they miss their length by a fraction, the batsman's high boundary strike-rate will punish us.
-- Vulnerability 2: If we commit to a defensive field split, a smart batsman will shift their stance to exploit vacant areas in the fine-leg or third-man regions.
-- Opponent Counter: The batting team could introduce a pinch-hitter left-hander to neutralize our off-spinner's angle, turning our strategy upside down.
-- Recommendation: Hold back one over of our main bowler or add protection in the deep backward square leg zone.`;
-
-  return { decision, reasoning };
+  return {
+    challenge,
+    counterDecision,
+    severity,
+    
+    // Backward compatibility
+    decision: challenge,
+    reasoning: `Counter Decision Proposed: ${counterDecision}\nSeverity Threat: ${severity.toUpperCase()}`
+  };
 }
+
