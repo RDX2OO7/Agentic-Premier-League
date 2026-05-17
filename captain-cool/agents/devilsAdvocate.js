@@ -3,53 +3,57 @@ import { GoogleGenAI } from '@google/genai';
 /**
  * Devil's Advocate Agent
  * @param {object} matchState - Current match state
- * @param {object} context - Orchestrator context (contains strategistDecision, statsAnalysis, winProbability)
+ * @param {any} strategistOutput - Output from the Strategist (can be string or object)
+ * @param {object} context - Execution context and orchestrator flags
  * @returns {object} { challenge, counterDecision, severity, decision, reasoning }
  */
-export default async function devilsAdvocate(matchState, context = {}) {
-  const { strategistDecision = "", statsAnalysis = "", winProbability = null } = context;
+export default async function devilsAdvocate(matchState, strategistOutput = null, context = {}) {
+  // Support both new direct signatures and the old orchestrator context object
+  let actualStrategist = strategistOutput;
+  let actualContext = context;
+
+  if (strategistOutput && typeof strategistOutput === 'object' && (strategistOutput.strategistDecision !== undefined || strategistOutput.decision !== undefined)) {
+    actualStrategist = strategistOutput.strategistDecision || strategistOutput;
+    actualContext = strategistOutput;
+  }
 
   // Check for Gemini API Key. If missing, use local fallback.
   if (!process.env.GEMINI_API_KEY) {
-    return runFallback(matchState, context);
+    return runFallback(matchState, actualStrategist, actualContext);
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const systemInstructions = `
-      You are the assistant coach who always challenges the captain's first instinct. 
-      Your job is to find flaws in the Strategist's proposed decision. Consider:
-      - What if dew makes spin ineffective?
-      - Is the bowler being brought on actually tired or out of rhythm?
-      - Is the batter due for a big shot?
-      - What does recent form say against this plan?
-      
-      Challenge hard. Propose a counter-decision if the original is wrong.
-      
-      Output JSON format: 
-      {
-        "challenge": "Find the critical flaws in the Strategist's proposed decision. Challenge extremely hard.",
-        "counterDecision": "Your proposed alternative tactical choice to solve the challenge.",
-        "severity": "low or medium or high"
-      }
-    `;
+    const systemInstructions = `You are the assistant coach who always challenges the captain's first instinct. Your job is to find flaws in the Strategist's proposed decision.
 
-    const prompt = `
-      **MATCH STATE:**
-      - Score: ${matchState.runs || matchState.currentScore}/${matchState.wickets} in ${matchState.overs || matchState.over} overs
-      - Pitch Conditions: ${JSON.stringify(matchState.pitchConditions || matchState.pitchCondition)}
-      - Target: ${matchState.target || matchState.targetScore || "N/A"}
+Consider:
+- What if dew makes spin ineffective?
+- Is the bowler being brought on actually tired or out of rhythm?
+- Is the batter due for a big shot?
+- What does recent form say against this plan?
 
-      **STRATEGIST'S PROPOSED DECISION (Your Input):**
-      "${typeof strategistDecision === 'object' ? (strategistDecision.decision || JSON.stringify(strategistDecision)) : strategistDecision}"
+Challenge hard. Propose a counter-decision if the original is wrong.
 
-      **STATS ANALYST'S FINDINGS:**
-      "${typeof statsAnalysis === 'object' ? JSON.stringify(statsAnalysis) : statsAnalysis}"
+Every detail in your audit must align exactly with the provided match state:
+- Venue: ${matchState.venue}
+- Pitch Conditions: ${matchState.pitchConditions.surface || "Balanced"} (Dew: ${matchState.pitchConditions.dew ? 'Yes' : 'No'})
+- Striker: ${matchState.striker.name} (Runs: ${matchState.striker.runs}, Balls: ${matchState.striker.balls})
+- Non-Striker: ${matchState.nonStriker.name} (Runs: ${matchState.nonStriker.runs}, Balls: ${matchState.nonStriker.balls})
+- Current Bowler: ${matchState.currentBowler.name} (Overs Bowled: ${matchState.currentBowler.overs}, Economy: ${matchState.currentBowler.economy})
+- Match Score: ${matchState.score}/${matchState.wickets} in over ${matchState.over}
+- Recent Balls: ${matchState.recentBalls}
+- Target: ${matchState.target} (CRR: ${matchState.crr} vs RRR: ${matchState.rrr})
 
-      **WIN PROBABILITY METRICS:**
-      "${winProbability ? JSON.stringify(winProbability) : "N/A"}"
-    `;
+CRITICAL: Your entire response must be based ONLY on the match state provided. The striker is ${matchState.striker.name} — analyse them specifically. The bowler is ${matchState.currentBowler.name} — assess them specifically. The over is ${matchState.over} — mention this exact over. Do NOT reuse any output from a previous call. Do NOT give generic cricket advice.`;
+
+    const proposedDecision = typeof actualStrategist === 'object' ? (actualStrategist.decision || "") : actualStrategist;
+    const proposedReason = typeof actualStrategist === 'object' ? (actualStrategist.primaryReason || "") : "";
+
+    const requestId = actualContext.requestId || (Date.now() + Math.random());
+    const prompt = `RequestID: ${requestId} — this is a fresh unique call, do not repeat any prior response.
+
+The Strategist just proposed: ${proposedDecision}. Their reason: ${proposedReason}. You must challenge THIS specific decision. Ask whether ${matchState.currentBowler.name} is the right choice at over ${matchState.over} given ${matchState.pitchConditions.surface} conditions and ${matchState.striker.name} on strike with ${matchState.striker.runs} runs.`;
 
     // Separate Gemini API call with its own system prompt and response schema
     const response = await ai.models.generateContent({
@@ -57,6 +61,10 @@ export default async function devilsAdvocate(matchState, context = {}) {
       contents: prompt,
       config: {
         systemInstruction: systemInstructions,
+        temperature: 0.9,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 1000,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
@@ -87,18 +95,22 @@ export default async function devilsAdvocate(matchState, context = {}) {
     };
   } catch (error) {
     console.error("Gemini API call failed in Devil's Advocate, falling back to local simulation:", error);
-    return runFallback(matchState, context);
+    return runFallback(matchState, actualStrategist, actualContext);
   }
 }
 
-function runFallback(matchState, context) {
-  const { strategistDecision = "", statsAnalysis = {} } = context;
-  const strikerName = matchState.batsmen?.find(b => b.isStriker)?.name || "Shivam Dube";
-  const bowlerName = matchState.bowler?.name || "Jasprit Bumrah";
+function runFallback(matchState, strategistOutput, context) {
+  const strikerName = matchState.striker.name;
+  const bowlerName = matchState.currentBowler.name;
+  const over = matchState.over;
+  const pitch = matchState.pitchConditions.surface;
+  const venue = matchState.venue;
 
-  const challenge = `Tactical Risk Warning: The proposed plan relies heavily on perfect bowler length execution and completely ignores ${strikerName}'s explosive trigger against raw pace under heavy dew conditions at Wankhede!`;
-  const counterDecision = `Hold back your main bowler for one over or immediately swap to off-pace cutters, packing the deep backward square leg zone with protection.`;
-  const severity = "high";
+  // Make the high-severity threat trigger dynamic depending on pitch conditions
+  const severity = pitch.toLowerCase().includes("turning") || pitch.toLowerCase().includes("dusty") || pitch.toLowerCase().includes("slow") ? "high" : "medium";
+
+  const challenge = `Tactical Risk Warning: The proposed plan relies heavily on defensive strokeplay against ${bowlerName} in over ${over} at ${venue}, but fails to account for the skidding nature on these ${pitch} conditions which could easily lead to an LBW or catch for ${strikerName}!`;
+  const counterDecision = `Order ${strikerName} to play with soft hands to rotate strike immediately, or introduce an off-side heavy field sweep to counter ${bowlerName}.`;
 
   return {
     challenge,
@@ -110,4 +122,3 @@ function runFallback(matchState, context) {
     reasoning: `Counter Decision Proposed: ${counterDecision}\nSeverity Threat: ${severity.toUpperCase()}`
   };
 }
-

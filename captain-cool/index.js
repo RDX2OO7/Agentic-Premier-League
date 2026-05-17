@@ -32,6 +32,18 @@ app.get('/sample', (req, res) => {
  * API: Analyze match state - returns full debate transcript + final commentary
  */
 app.post('/analyze', async (req, res) => {
+  console.log("📥 Received POST /analyze match state payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  // Input validation check (STEP 7)
+  if (!req.body || req.body.striker === undefined || req.body.over === undefined) {
+    console.error("❌ Validation Failed: Incomplete match state received.");
+    return res.status(400).json({
+      success: false,
+      error: "Incomplete match state received."
+    });
+  }
+
   try {
     const rawState = req.body;
     const matchState = validateMatchState(rawState);
@@ -74,6 +86,18 @@ app.get('/api/scenarios', (req, res) => {
  * API: Analyze match state using multi-agent strategy system (Dashboard Backward Compatibility)
  */
 app.post('/api/strategy', async (req, res) => {
+  console.log("📥 Received POST /api/strategy match state payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  // Input validation check (STEP 7)
+  if (!req.body || req.body.striker === undefined || req.body.over === undefined) {
+    console.error("❌ Validation Failed: Incomplete match state received.");
+    return res.status(400).json({
+      success: false,
+      error: "Incomplete match state received."
+    });
+  }
+
   try {
     const rawState = req.body;
     

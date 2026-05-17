@@ -3,61 +3,71 @@ import { GoogleGenAI } from '@google/genai';
 /**
  * Commentator Agent
  * @param {object} matchState - Current match state
- * @param {object} context - Orchestrator context (contains refinedStrategy, initialStrategy, devilsAdvocateCritique, statsAnalysis, winProbability)
+ * @param {any} fullDebateHistory - Full debate history formatted as text or the old context object
+ * @param {object} context - Execution context and orchestrator flags
  * @returns {object} { decision, reasoning, text }
  */
-export default async function commentator(matchState, context = {}) {
-  const {
-    refinedStrategy = "",
-    initialStrategy = "",
-    devilsAdvocateCritique = "",
-    statsAnalysis = "",
-    winProbability = null
-  } = context;
+export default async function commentator(matchState, fullDebateHistory = null, context = {}) {
+  // Support both new direct signatures and the old orchestrator context object
+  let actualHistory = fullDebateHistory;
+  let actualContext = context;
+
+  if (fullDebateHistory && typeof fullDebateHistory === 'object' && (fullDebateHistory.refinedStrategy !== undefined || fullDebateHistory.initialStrategy !== undefined)) {
+    actualHistory = `
+Stats Analyst Findings: ${JSON.stringify(fullDebateHistory.statsAnalysis || "")}
+Strategist Initial: ${JSON.stringify(fullDebateHistory.initialStrategy || "")}
+Devil's Advocate Challenge: ${JSON.stringify(fullDebateHistory.devilsAdvocateCritique || "")}
+Strategist Refined/Final: ${JSON.stringify(fullDebateHistory.refinedStrategy || "")}
+`;
+    actualContext = fullDebateHistory;
+  }
 
   // Check for Gemini API Key. If missing, use local fallback.
   if (!process.env.GEMINI_API_KEY) {
-    return runFallback(matchState, context);
+    return runFallback(matchState, actualContext);
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const systemInstructions = `
-      You are Harsha Bhogle meets Nasser Hussain — you turn tactical cricket 
-      decisions into vivid, exciting commentary that any fan can understand. 
-      You receive the full agent debate and the final decision. Write:
-      1. FINAL DECISION — one crisp sentence
-      2. CAPTAIN'S CALL — 3-4 lines of rich cricket commentary explaining why
-      3. THE DEBATE — summarize what the Devil's Advocate said and how the 
-         Strategist responded
-      4. WHY NOT THE OTHER OPTION — one line explaining the rejected alternative
+    const systemInstructions = `You are Harsha Bhogle meets Nasser Hussain — you turn tactical cricket decisions into vivid, exciting commentary that any fan can understand. You receive the full agent debate and the final decision.
 
-      Write like you're on air. No jargon. Output plain text, not JSON.
-    `;
+Write your response with these exact sections:
+1. FINAL DECISION — one crisp sentence
+2. CAPTAIN'S CALL — 3-4 lines of rich cricket commentary explaining why
+3. THE DEBATE — summarize what the Devil's Advocate said and how the Strategist responded
+4. WHY NOT THE OTHER OPTION — one line explaining the rejected alternative
 
-    const prompt = `
-      **MATCH STATE:**
-      - Batting Team: ${matchState.battingTeam} (Striker: ${matchState.batsmen?.[0]?.name || "Shivam Dube"})
-      - Bowling Team: ${matchState.bowlingTeam} (Bowler: ${matchState.bowler?.name || "Jasprit Bumrah"})
-      - Score: ${matchState.runs || matchState.currentScore}/${matchState.wickets} in ${matchState.overs || matchState.over} overs
-      - Target: ${matchState.target || matchState.targetScore || "N/A"}
-      - Win Probability: Batting ${winProbability?.battingWinProb}% vs Bowling ${winProbability?.bowlingWinProb}%
-      - Recent Play: [${(matchState.recentDeliveries || []).join(', ')}]
+Write like you're on air. No jargon. Output plain text, not JSON.
 
-      **TACTICAL DEBATE ROOM:**
-      - Stats Analyst Findings: ${typeof statsAnalysis === 'object' ? JSON.stringify(statsAnalysis) : statsAnalysis}
-      - Strategist's Initial Proposal: ${typeof initialStrategy === 'object' ? (initialStrategy.decision || JSON.stringify(initialStrategy)) : initialStrategy}
-      - Devil's Advocate's Skeptical Challenge: ${typeof devilsAdvocateCritique === 'object' ? (devilsAdvocateCritique.challenge || JSON.stringify(devilsAdvocateCritique)) : devilsAdvocateCritique}
-      - Captain Cool's Refined Final Tactic: ${typeof refinedStrategy === 'object' ? (refinedStrategy.decision || JSON.stringify(refinedStrategy)) : refinedStrategy}
-    `;
+Every detail in your commentary must align exactly with the provided match state:
+- Venue: ${matchState.venue}
+- Pitch Conditions: ${matchState.pitchConditions.surface || "Balanced"} (Dew: ${matchState.pitchConditions.dew ? 'Yes' : 'No'})
+- Striker: ${matchState.striker.name} (Runs: ${matchState.striker.runs}, Balls: ${matchState.striker.balls})
+- Non-Striker: ${matchState.nonStriker.name} (Runs: ${matchState.nonStriker.runs}, Balls: ${matchState.nonStriker.balls})
+- Current Bowler: ${matchState.currentBowler.name} (Overs Bowled: ${matchState.currentBowler.overs}, Economy: ${matchState.currentBowler.economy})
+- Match Score: ${matchState.score}/${matchState.wickets} in over ${matchState.over}
+- Recent Balls: ${matchState.recentBalls}
+- Target: ${matchState.target} (CRR: ${matchState.crr} vs RRR: ${matchState.rrr})
 
-    // Separate Gemini API call - plain text model generation
+CRITICAL: Your entire response must be based ONLY on the match state provided. The striker is ${matchState.striker.name} — analyse them specifically. The bowler is ${matchState.currentBowler.name} — assess them specifically. The over is ${matchState.over} — mention this exact over. Do NOT reuse any output from a previous call. Do NOT give generic cricket advice.`;
+
+    const requestId = actualContext.requestId || (Date.now() + Math.random());
+    const prompt = `RequestID: ${requestId} — this is a fresh unique call, do not repeat any prior response.
+
+Here is the tactical debate transcript:
+${typeof actualHistory === 'object' ? JSON.stringify(actualHistory) : (actualHistory || "No debate history provided.")}`;
+
+    // Separate Gemini API call with its own system prompt and config
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        systemInstruction: systemInstructions
+        systemInstruction: systemInstructions,
+        temperature: 0.9,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 1000
       }
     });
 
@@ -80,32 +90,30 @@ export default async function commentator(matchState, context = {}) {
     };
   } catch (error) {
     console.error("Gemini API call failed in Commentator, falling back to local simulation:", error);
-    return runFallback(matchState, context);
+    return runFallback(matchState, actualContext);
   }
 }
 
 function runFallback(matchState, context) {
-  const {
-    refinedStrategy = {},
-    devilsAdvocateCritique = {},
-    winProbability = {}
-  } = context;
+  const strikerName = matchState.striker.name;
+  const bowlerName = matchState.currentBowler.name;
+  const venue = matchState.venue;
+  const over = matchState.over;
+  const pitch = matchState.pitchConditions.surface;
 
-  const strikerName = matchState.batsmen?.[0]?.name || "Shivam Dube";
-  const bowlerName = matchState.bowler?.name || "Jasprit Bumrah";
+  const decisionLine = `FINAL DECISION — Instruct ${strikerName} to play defensively and rotate strike against ${bowlerName} in over ${over}.`;
+  
+  const text = `${decisionLine}
 
-  const text = `FINAL DECISION — Acknowledge the high-tension environment and pivot: Shivam Dube is instructed to rotate strike and let the non-striker take the boundary risk against Jasprit Bumrah's lethal spell.
+CAPTAIN'S CALL — Look at the atmosphere at ${venue}, the tension is absolutely palpable! With ${strikerName} facing ${bowlerName} in over ${over} under ${pitch} conditions, we can't afford to take reckless chances. Running hard, rotating strike, and respecting ${bowlerName}'s line is the golden rule here!
 
-CAPTAIN'S CALL — Look at the dew on the Wankhede grass, it's absolutely slick! Bumrah is firing thunderbolts, bowling with ice in his veins. Forcing Dube to force pace here under pressure is suicidal; we play smart, run hard, and hold our shape.
+THE DEBATE — The Devil's Advocate pointed out the severe risk warning regarding over ${over}. The Strategist initially wanted to build momentum, but our dynamic review triggered a calculated anchor pivot to preserve wickets.
 
-THE DEBATE — The Devil's Advocate warned that Bumrah's skidding deliveries on slick turf would trap Dube in front, whereas the Strategist initially wanted to charge. Captain Cool calmly pivoted, choosing caution for these six deliveries.
-
-WHY NOT THE OTHER OPTION — Targeting Bumrah was rejected because the risk-adjusted win probability drops by 18% if we lose Dube's wicket now.`;
+WHY NOT THE OTHER OPTION — Charging ${bowlerName} was discarded because risking ${strikerName}'s wicket right now under CRR ${matchState.crr} vs RRR ${matchState.rrr} would deal a severe blow to the match chase!`;
 
   return {
-    decision: "FINAL DECISION — Rotate strike against Bumrah's over.",
+    decision: decisionLine,
     reasoning: text,
     text: text
   };
 }
-

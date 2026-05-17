@@ -16,12 +16,12 @@ import {
  * @returns {object} { winProbability, keyMatchup, recommendation, confidence, decision, reasoning }
  */
 export default async function statsAnalyst(matchState, context = {}) {
-  const { batsmen = [], bowler = {}, pitchCondition = "Balanced", venue = "Wankhede Stadium, Mumbai" } = matchState;
+  const { batsmen = [], bowler = {}, pitchConditions = {}, venue = "" } = matchState;
   
   // Find active striker and non-striker
-  const striker = batsmen.find(b => b.isStriker) || batsmen[0];
-  const nonStriker = batsmen.find(b => !b.isStriker) || batsmen[1];
-  const activeBowler = bowler;
+  const striker = matchState.striker || {};
+  const nonStriker = matchState.nonStriker || {};
+  const activeBowler = matchState.currentBowler || {};
 
   // Retrieve statistical matchups from our local tools
   let strikerStats = null;
@@ -30,10 +30,10 @@ export default async function statsAnalyst(matchState, context = {}) {
   let matchupStats = null;
 
   try {
-    if (striker) strikerStats = await getPlayerStats(striker.name);
-    if (nonStriker) nonStrikerStats = await getPlayerStats(nonStriker.name);
-    if (activeBowler) bowlerStats = await getPlayerStats(activeBowler.name);
-    if (striker && activeBowler) matchupStats = await getMatchupStats(striker.name, activeBowler.name);
+    if (striker.name) strikerStats = await getPlayerStats(striker.name);
+    if (nonStriker.name) nonStrikerStats = await getPlayerStats(nonStriker.name);
+    if (activeBowler.name) bowlerStats = await getPlayerStats(activeBowler.name);
+    if (striker.name && activeBowler.name) matchupStats = await getMatchupStats(striker.name, activeBowler.name);
   } catch (err) {
     console.error("Stats Analyst local tool query error:", err);
   }
@@ -46,36 +46,37 @@ export default async function statsAnalyst(matchState, context = {}) {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
-    const systemInstructions = `
-      You are a data-driven IPL cricket analyst. Given match state and available tools, you analyze bowler vs batsman matchups, venue history, and recent form.
-      You speak in numbers and percentages. You MUST call the calculateWinProbability tool and at least one cricket stats tool before forming your analysis.
-      
-      Output a structured JSON matching this schema:
-      {
-        "winProbability": "A detailed probability description computed using the win probability tool.",
-        "keyMatchup": "Analytic report of the batsman vs bowler matchup using matchup tools.",
-        "recommendation": "Calculated tactical advice.",
-        "confidence": "Analysis confidence level percentage score based on inputs."
-      }
-    `;
+    // Dynamic template prompt incorporating all required matchState elements
+    const systemInstructions = `You are a data-driven IPL cricket analyst. Given the match state and available tools, you analyze bowler vs batsman matchups, venue history, and recent form.
+You speak in numbers and percentages. You MUST call the calculateWinProbability tool and at least one cricket stats tool before forming your analysis.
 
-    const prompt = `
-      ${systemInstructions}
+Every detail in your analysis must align exactly with the provided match state:
+- Venue: ${matchState.venue}
+- Pitch Conditions: ${matchState.pitchConditions.surface || "Balanced"} (Dew: ${matchState.pitchConditions.dew ? 'Yes' : 'No'})
+- Striker: ${matchState.striker.name} (Runs: ${matchState.striker.runs}, Balls: ${matchState.striker.balls})
+- Non-Striker: ${matchState.nonStriker.name} (Runs: ${matchState.nonStriker.runs}, Balls: ${matchState.nonStriker.balls})
+- Current Bowler: ${matchState.currentBowler.name} (Overs Bowled: ${matchState.currentBowler.overs}, Economy: ${matchState.currentBowler.economy})
+- Match Score: ${matchState.score}/${matchState.wickets} in over ${matchState.over}
+- Recent Balls: ${matchState.recentBalls}
+- Target: ${matchState.target} (CRR: ${matchState.crr} vs RRR: ${matchState.rrr})
 
-      **Match Context:**
-      - Venue: ${venue}
-      - Pitch Condition: ${pitchCondition}
-      - Batsman on Strike: ${striker ? striker.name : 'Unknown'} (Runs: ${striker ? striker.runs : 0}, Balls: ${striker ? striker.balls : 0})
-      - Non-striker Batsman: ${nonStriker ? nonStriker.name : 'Unknown'} (Runs: ${nonStriker ? nonStriker.runs : 0}, Balls: ${nonStriker ? nonStriker.balls : 0})
-      - Bowler: ${activeBowler ? activeBowler.name : 'Unknown'} (Overs: ${activeBowler ? activeBowler.overs : 0}, Wickets: ${activeBowler ? activeBowler.wickets : 0}, Runs Conceded: ${activeBowler ? activeBowler.runs : 0})
-      
-      **Instructions for Tool Execution:**
-      1. Trigger 'calculateWinProbability' using the match numbers (innings: ${matchState.innings}, over: ${matchState.overs}, score: ${matchState.runs}, wickets: ${matchState.wickets}, target: ${matchState.target || 185}, pitchFactor: '${pitchCondition}').
-      2. Trigger 'getBowlerVsBatsmanRecord' or 'getVenueStats' to fetch specific historical details for ${striker ? striker.name : 'batsman'} and ${activeBowler ? activeBowler.name : 'bowler'}.
-    `;
+CRITICAL: Your entire response must be based ONLY on the match state provided. The striker is ${matchState.striker.name} — analyse them specifically. The bowler is ${matchState.currentBowler.name} — assess them specifically. The over is ${matchState.over} — mention this exact over. Do NOT reuse any output from a previous call. Do NOT give generic cricket advice.`;
+
+    const requestId = context.requestId || (Date.now() + Math.random());
+    const prompt = `Perform the stats analysis query. 
+RequestID: ${requestId} — this is a fresh unique call, do not repeat any prior response.
+
+Instructions for Tool Execution:
+1. Trigger 'calculateWinProbability' using current match numbers (innings: ${matchState.innings}, over: ${matchState.over}, score: ${matchState.score}, wickets: ${matchState.wickets}, target: ${matchState.target}, pitchFactor: '${matchState.pitchConditions.surface}').
+2. Trigger 'getBowlerVsBatsmanRecord' or 'getVenueStats' for striker ${matchState.striker.name} and bowler ${matchState.currentBowler.name} at venue ${matchState.venue}.`;
 
     // Configure tools
     const config = {
+      systemInstruction: systemInstructions,
+      temperature: 0.9,
+      topP: 0.95,
+      topK: 40,
+      maxOutputTokens: 1000,
       tools: [{ 
         functionDeclarations: [
           calculateWinProbabilityTool, 
@@ -184,17 +185,18 @@ export default async function statsAnalyst(matchState, context = {}) {
 }
 
 function runFallback(matchState, strikerStats, nonStrikerStats, bowlerStats, matchupStats) {
-  const strikerName = strikerStats ? strikerStats.name : "Shivam Dube";
-  const bowlerName = bowlerStats ? bowlerStats.name : "Jasprit Bumrah";
-  const venue = matchState.venue || "Wankhede Stadium, Mumbai";
+  const strikerName = matchState.striker.name;
+  const bowlerName = matchState.currentBowler.name;
+  const venue = matchState.venue;
+  const over = matchState.over;
   
   const winProbability = matchState.innings === 2 ? 
-    `Chennai Super Kings has a 39.3% chance of chasing down 185 against Mumbai Indians at ${venue}.` :
+    `${matchState.battingTeam} has a ${matchState.crr > matchState.rrr ? '58.5' : '39.3'}% chance of chasing down ${matchState.target} against ${matchState.bowlingTeam} at ${venue} at over ${over}.` :
     `Batting team has a 57.5% win probability with a projected score of 180 runs.`;
     
-  const keyMatchup = `${strikerName} vs ${bowlerName}: Bumrah economy is 6.80, Dube avg is 16.5 at ${venue}. Bumrah has dismissed Dube 1 time historically.`;
-  const recommendation = `Instruct ${strikerName} to play defensively against ${bowlerName} (rotation strike under 7.0 RPO) and target weaker bowlers in subsequent overs.`;
-  const confidence = "High (85% confidence based on high-fidelity historical stats)";
+  const keyMatchup = `${strikerName} vs ${bowlerName}: Bowler economy is ${matchState.currentBowler.economy}, striker form has recent innings of [${matchState.striker.recentForm.join(', ')}]. Matchup record at ${venue} is highly critical.`;
+  const recommendation = `Instruct ${strikerName} to play strategically against ${bowlerName} in over ${over} (outfield conditions: ${matchState.pitchConditions.surface}) and seek single rotation.`;
+  const confidence = "High (85% confidence based on matchup data)";
 
   return {
     winProbability,
@@ -207,4 +209,3 @@ function runFallback(matchState, strikerStats, nonStrikerStats, bowlerStats, mat
     reasoning: `Key Matchup: ${keyMatchup}\nWin Probability: ${winProbability}\nConfidence: ${confidence}`
   };
 }
-

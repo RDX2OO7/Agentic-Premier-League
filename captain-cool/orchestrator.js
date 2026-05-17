@@ -1,5 +1,5 @@
 /**
- * Multi-Agent Orchestrator - "Captain Cool" Multi-Agent Strategy System
+ * Multi-Agent Orchestrator - "Undercover Captain" Multi-Agent Strategy System
  * Conducts the workflow, manages dependencies, runs tools, and coordinates 
  * the multi-agent debate (StatsAnalyst -> Strategist -> DevilsAdvocate -> Strategist-Refined -> Commentator).
  */
@@ -12,7 +12,7 @@ import devilsAdvocate from './agents/devilsAdvocate.js';
 import commentator from './agents/commentator.js';
 
 /**
- * Main Captain Cool Multi-Agent Orchestrator Loop
+ * Main Undercover Captain Multi-Agent Orchestrator Loop
  * @param {object} rawMatchState - Input match state parameters
  * @returns {object} Full step-by-step orchestrator report and debate transcript
  */
@@ -23,6 +23,10 @@ export async function runCaptainCool(rawMatchState) {
   const matchState = validateMatchState(rawMatchState);
   console.log(`[Orchestrator] Match State validated for ${matchState.battingTeam} vs ${matchState.bowlingTeam}`);
 
+  // Generate unique requestId for Cache Buster (STEP 8)
+  const requestId = Date.now() + Math.random();
+  const context = { requestId };
+
   // Compute Win Probability Tool
   console.log("[Orchestrator] Running Win Probability Tool...");
   const winProbability = await calculateWinProbability(matchState);
@@ -30,12 +34,12 @@ export async function runCaptainCool(rawMatchState) {
 
   const transcript = [];
 
-  // Step 1: Run Stats Analyst Agent
+  // Step 1: Run Stats Analyst Agent (matchState)
   console.log("\n==================================================");
   console.log("🤖 STATS ANALYST RAW OUTPUT");
   console.log("==================================================");
-  const statsAnalysis = await statsAnalyst(matchState);
-  const statsOutput = typeof statsAnalysis === 'object' ? JSON.stringify(statsAnalysis, null, 2) : statsAnalysis;
+  const analystOutput = await statsAnalyst(matchState, context);
+  const statsOutput = typeof analystOutput === 'object' ? JSON.stringify(analystOutput, null, 2) : analystOutput;
   console.log(statsOutput);
   transcript.push({
     agent: "Stats Analyst",
@@ -43,15 +47,12 @@ export async function runCaptainCool(rawMatchState) {
     timestamp: new Date().toISOString()
   });
 
-  // Step 2: Run Strategist with analyst output → get proposed decision
+  // Step 2: Run Strategist Agent with analystOutput context
   console.log("\n==================================================");
   console.log("🧠 STRATEGIST (INITIAL DRAFT) RAW OUTPUT");
   console.log("==================================================");
-  const initialStrategy = await strategist(matchState, {
-    statsAnalysis,
-    winProbability
-  });
-  const stratInitOutput = typeof initialStrategy === 'object' ? JSON.stringify(initialStrategy, null, 2) : initialStrategy;
+  const strategistOutput = await strategist(matchState, analystOutput, null, context);
+  const stratInitOutput = typeof strategistOutput === 'object' ? JSON.stringify(strategistOutput, null, 2) : strategistOutput;
   console.log(stratInitOutput);
   transcript.push({
     agent: "Strategist (Initial)",
@@ -59,16 +60,12 @@ export async function runCaptainCool(rawMatchState) {
     timestamp: new Date().toISOString()
   });
 
-  // Step 3: Run Devil's Advocate with strategist output → get challenge
+  // Step 3: Run Devil's Advocate Agent with strategistOutput context (STEP 5)
   console.log("\n==================================================");
   console.log("👹 DEVIL'S ADVOCATE RAW OUTPUT");
   console.log("==================================================");
-  const devilsAdvocateCritique = await devilsAdvocate(matchState, {
-    strategistDecision: initialStrategy,
-    statsAnalysis,
-    winProbability
-  });
-  const devilsOutput = typeof devilsAdvocateCritique === 'object' ? JSON.stringify(devilsAdvocateCritique, null, 2) : devilsAdvocateCritique;
+  const advocateOutput = await devilsAdvocate(matchState, strategistOutput, context);
+  const devilsOutput = typeof advocateOutput === 'object' ? JSON.stringify(advocateOutput, null, 2) : advocateOutput;
   console.log(devilsOutput);
   transcript.push({
     agent: "Devil's Advocate",
@@ -76,20 +73,16 @@ export async function runCaptainCool(rawMatchState) {
     timestamp: new Date().toISOString()
   });
 
-  // Step 4: IF severity === "high": run Strategist again with the challenge (revision round) ELSE keep original decision
-  let refinedStrategy = initialStrategy;
-  const severity = devilsAdvocateCritique.severity || "";
+  // Step 4: If advocateOutput severity === "high", run strategistAgent again with (matchState, analystOutput, advocateOutput)
+  let refinedStrategy = strategistOutput;
+  const severity = advocateOutput.severity || "";
   const isHighSeverity = severity.toLowerCase() === "high";
 
   if (isHighSeverity) {
     console.log("\n==================================================");
     console.log("🧠 STRATEGIST (REFINED DEBATE TURN) RAW OUTPUT");
     console.log("==================================================");
-    refinedStrategy = await strategist(matchState, {
-      statsAnalysis,
-      winProbability,
-      devilsAdvocateCritique: devilsAdvocateCritique.decision + "\n" + devilsAdvocateCritique.reasoning
-    });
+    refinedStrategy = await strategist(matchState, analystOutput, advocateOutput, context);
     const stratRefOutput = typeof refinedStrategy === 'object' ? JSON.stringify(refinedStrategy, null, 2) : refinedStrategy;
     console.log(stratRefOutput);
     transcript.push({
@@ -101,17 +94,26 @@ export async function runCaptainCool(rawMatchState) {
     console.log(`\n[Orchestrator] Devil's Advocate severity is "${severity}". Skipping Strategist revision round.`);
   }
 
-  // Step 5: Run Commentator with full debate transcript → get final output
+  // Format full debate history string for commentator
+  const fullDebateHistory = `
+=== STATS ANALYST FINDINGS ===
+${JSON.stringify(analystOutput)}
+
+=== INITIAL STRATEGY PROPOSED ===
+${JSON.stringify(strategistOutput)}
+
+=== DEVIL'S ADVOCATE AUDIT AND CRITIQUE ===
+${JSON.stringify(advocateOutput)}
+
+=== FINAL REFINED STRATEGY ===
+${JSON.stringify(refinedStrategy)}
+`;
+
+  // Step 5: Run commentatorAgent(matchState, fullDebateHistory)
   console.log("\n==================================================");
   console.log("🎙️ MATCH COMMENTATOR RAW OUTPUT");
   console.log("==================================================");
-  const commentary = await commentator(matchState, {
-    refinedStrategy,
-    initialStrategy,
-    devilsAdvocateCritique,
-    statsAnalysis,
-    winProbability
-  });
+  const commentary = await commentator(matchState, fullDebateHistory, context);
   const commOutput = typeof commentary === 'object' ? (commentary.text || commentary.reasoning || JSON.stringify(commentary, null, 2)) : commentary;
   console.log(commOutput);
   transcript.push({
@@ -125,11 +127,11 @@ export async function runCaptainCool(rawMatchState) {
     timestamp: new Date().toISOString(),
     matchState,
     winProbability,
-    transcript, // Store the full debate transcript as requested
+    transcript,
     agents: {
-      statsAnalyst: statsAnalysis,
-      strategistInitial: initialStrategy,
-      devilsAdvocate: devilsAdvocateCritique,
+      statsAnalyst: analystOutput,
+      strategistInitial: strategistOutput,
+      devilsAdvocate: advocateOutput,
       strategistRefined: refinedStrategy,
       commentator: commentary
     }
@@ -142,4 +144,3 @@ export async function runCaptainCool(rawMatchState) {
 export async function runStrategySystem(rawMatchState) {
   return runCaptainCool(rawMatchState);
 }
-

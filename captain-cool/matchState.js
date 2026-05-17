@@ -19,7 +19,7 @@ export class IPLMatchState {
     this.innings = data.innings || 2; // 1 or 2
     
     // Core game state
-    this.currentScore = data.currentScore !== undefined ? data.currentScore : (data.runs || 0);
+    this.currentScore = data.currentScore !== undefined ? data.currentScore : (data.runs !== undefined ? data.runs : (data.score !== undefined ? data.score : 0));
     this.wickets = data.wickets !== undefined ? data.wickets : 0;
     
     // Parse overs (e.g. 15.0) into discrete over and ball values
@@ -80,6 +80,15 @@ export class IPLMatchState {
         economy: b.economy !== undefined ? b.economy : 7.0,
         recentForm: Array.isArray(b.recentForm) ? b.recentForm : []
       }));
+    } else if (data.currentBowler) {
+      this.bowlersAvailable = [
+        {
+          name: data.currentBowler.name || "Active Bowler",
+          oversBowled: data.currentBowler.overs !== undefined ? data.currentBowler.overs : (data.currentBowler.oversBowled || 0),
+          economy: data.currentBowler.economy !== undefined ? data.currentBowler.economy : 7.5,
+          recentForm: Array.isArray(data.currentBowler.recentForm) ? data.currentBowler.recentForm : [1, 2, 0, 1, 1]
+        }
+      ];
     } else if (data.bowler) {
       this.bowlersAvailable = [
         {
@@ -94,20 +103,21 @@ export class IPLMatchState {
     }
 
     // Pitch conditions: { surface, dew, venue }
+    const actualVenue = data.venue || (data.pitchConditions && data.pitchConditions.venue) || "IPL Venue";
     if (data.pitchConditions) {
       this.pitchConditions = {
         surface: data.pitchConditions.surface || "Balanced",
         dew: data.pitchConditions.dew !== undefined ? data.pitchConditions.dew : false,
-        venue: data.pitchConditions.venue || "IPL Venue"
+        venue: actualVenue
       };
     } else if (data.pitchCondition) {
       this.pitchConditions = {
         surface: data.pitchCondition,
         dew: data.pitchCondition.toLowerCase().includes("dew"),
-        venue: "IPL Venue"
+        venue: actualVenue
       };
     } else {
-      this.pitchConditions = { surface: "Balanced", dew: false, venue: "IPL Venue" };
+      this.pitchConditions = { surface: "Balanced", dew: false, venue: actualVenue };
     }
 
     // Inning specific metrics
@@ -136,6 +146,10 @@ export class IPLMatchState {
     // --- Legacy Fields Mapped for Seamless System Compatibility ---
     // (Ensures backward compatibility with winProbability tool and agents without rewriting them)
     this.runs = this.currentScore;
+    this.score = this.currentScore;
+    this.crr = this.currentRunRate;
+    this.rrr = this.requiredRunRate;
+    this.venue = this.pitchConditions.venue;
     this.overs = parseFloat((this.over + (this.ball / 6)).toFixed(1));
     this.target = this.targetScore;
     this.pitchCondition = `${this.pitchConditions.surface} at ${this.pitchConditions.venue}${this.pitchConditions.dew ? ' (Heavy Dew)' : ' (No Dew)'}`;
@@ -143,9 +157,16 @@ export class IPLMatchState {
       { name: this.striker.name, runs: this.striker.runs, balls: this.striker.balls, isStriker: true, recentForm: this.striker.recentForm },
       { name: this.nonStriker.name, runs: this.nonStriker.runs, balls: this.nonStriker.balls, isStriker: false }
     ];
-    this.bowler = {
+    this.currentBowler = {
       name: this.bowlersAvailable[0]?.name || "Active Bowler",
       overs: this.bowlersAvailable[0]?.oversBowled || 0,
+      economy: this.bowlersAvailable[0]?.economy || 7.5,
+      recentForm: this.bowlersAvailable[0]?.recentForm || [1, 2, 0, 1, 1],
+      runs: 0
+    };
+    this.bowler = {
+      name: this.currentBowler.name,
+      overs: this.currentBowler.overs,
       wickets: 0,
       runs: 0
     };

@@ -1156,43 +1156,92 @@
       content.style.display = "none";
       loader.style.display = "flex";
 
-      // Collect matchState payload from form
+      // Collect matchState payload from form (STEP 6)
       const battingTeam = document.getElementById("battingTeam").value;
       const bowlingTeam = document.getElementById("bowlingTeam").value;
       const innings = parseInt(document.getElementById("innings").value);
       const target = document.getElementById("target").value ? parseInt(document.getElementById("target").value) : null;
-      const runs = parseInt(document.getElementById("runs").value);
+      const score = parseInt(document.getElementById("runs").value);
       const wickets = parseInt(document.getElementById("wickets").value);
-      const overs = parseFloat(document.getElementById("overs").value);
-      const pitchCondition = document.getElementById("pitchCondition").value;
+      const over = parseFloat(document.getElementById("overs").value);
+      const pitchConditionValue = document.getElementById("pitchCondition").value;
 
       const strikerName = document.getElementById("strikerName").value;
       const strikerRuns = parseInt(document.getElementById("strikerRuns").value);
+      const strikerBalls = Math.round(strikerRuns * 0.8);
       const nonStrikerName = document.getElementById("nonStrikerName").value;
       const nonStrikerRuns = parseInt(document.getElementById("nonStrikerRuns").value);
 
       const bowlerName = document.getElementById("bowlerName").value;
-      const bowlerWickets = parseInt(document.getElementById("bowlerWickets").value);
+      const bowlerEconomy = 7.5;
+      const bowlerOvers = 2;
 
-      const recentStr = document.getElementById("recentDeliveries").value;
-      const recentDeliveries = recentStr.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      const venue = "Wankhede Stadium, Mumbai"; // Default venue for standard simulation context
+      const pitchConditions = {
+        surface: pitchConditionValue,
+        dew: pitchConditionValue.toLowerCase().includes("dew"),
+        venue: venue
+      };
 
+      const recentBalls = document.getElementById("recentDeliveries").value;
+      const crr = over > 0 ? parseFloat((score / over).toFixed(2)) : 0.0;
+      const rrr = target ? parseFloat(((target - score) / (20 - over || 1)).toFixed(2)) : 0.0;
+      const impactPlayerAvailable = true;
+
+      // Construct the complete dynamic matchState payload
       const payload = {
+        innings,
+        over,
+        score,
+        wickets,
+        target,
         battingTeam,
         bowlingTeam,
-        innings,
-        target,
-        runs,
-        wickets,
-        overs,
-        pitchCondition,
+        strikerName,
+        strikerRuns,
+        strikerBalls,
+        nonStrikerName,
+        nonStrikerRuns,
+        bowlerName,
+        bowlerEconomy,
+        bowlerOvers,
+        pitchConditions,
+        venue,
+        recentBalls,
+        crr,
+        rrr,
+        impactPlayerAvailable,
+
+        // Nested properties for backward compatibility
+        striker: {
+          name: strikerName,
+          runs: strikerRuns,
+          balls: strikerBalls,
+          recentForm: [24, 45, 12, 68, 18]
+        },
+        nonStriker: {
+          name: nonStrikerName,
+          runs: nonStrikerRuns,
+          balls: Math.round(nonStrikerRuns * 0.9)
+        },
+        currentBowler: {
+          name: bowlerName,
+          economy: bowlerEconomy,
+          overs: bowlerOvers,
+          recentForm: [1, 2, 0, 1, 1]
+        },
         batsmen: [
-          { name: strikerName, runs: strikerRuns, balls: Math.round(strikerRuns * 0.8), isStriker: true },
+          { name: strikerName, runs: strikerRuns, balls: strikerBalls, isStriker: true },
           { name: nonStrikerName, runs: nonStrikerRuns, balls: Math.round(nonStrikerRuns * 0.9), isStriker: false }
         ],
-        bowler: { name: bowlerName, overs: 2, wickets: bowlerWickets, runs: 15 },
-        recentDeliveries
+        bowler: { name: bowlerName, overs: bowlerOvers, wickets: 0, runs: 15 },
+        runs: score,
+        overs: over,
+        pitchCondition: `${pitchConditionValue} at ${venue}`
       };
+
+      // STEP 6: Log full matchState object before sending
+      console.log("🚀 [Frontend matchState payload] Initiating audit with:", payload);
 
       // Sequential loader labels for professional visual UX
       let progressStages = [

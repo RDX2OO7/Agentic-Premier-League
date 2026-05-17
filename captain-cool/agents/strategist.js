@@ -3,56 +3,61 @@ import { GoogleGenAI } from '@google/genai';
 /**
  * Strategist Agent
  * @param {object} matchState - Current match state
- * @param {object} context - Orchestrator context (contains statsAnalysis, winProbability, devilsAdvocateCritique)
+ * @param {any} analystOutput - Output from Stats Analyst (can be string or object)
+ * @param {any} advocateOutput - Output from Devil's Advocate (for revision rounds)
+ * @param {object} context - Execution context and orchestrator flags
  * @returns {object} { decision, primaryReason, alternativeConsidered, confidenceLevel, reasoning }
  */
-export default async function strategist(matchState, context = {}) {
-  const { statsAnalysis = "", winProbability = null, devilsAdvocateCritique = "" } = context;
+export default async function strategist(matchState, analystOutput = null, advocateOutput = null, context = {}) {
+  // Support both new direct signatures and the old orchestrator context object
+  let actualAnalyst = analystOutput;
+  let actualAdvocate = advocateOutput;
+  let actualContext = context;
+
+  if (analystOutput && typeof analystOutput === 'object' && (analystOutput.statsAnalysis !== undefined || analystOutput.devilsAdvocateCritique !== undefined)) {
+    actualAnalyst = analystOutput.statsAnalysis;
+    actualAdvocate = analystOutput.devilsAdvocateCritique;
+    actualContext = analystOutput;
+  }
+
+  const isRefining = !!actualAdvocate;
 
   // Check for Gemini API Key. If missing, use local fallback.
   if (!process.env.GEMINI_API_KEY) {
-    return runFallback(matchState, context);
+    return runFallback(matchState, actualAnalyst, actualAdvocate, actualContext);
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const isRefining = !!devilsAdvocateCritique;
 
-    const systemInstructions = `
-      You are the IPL captain's tactical brain — like MS Dhoni's instinct combined with data. You receive the Stats Analyst's findings and propose ONE specific tactical decision: who bowls the next over, field placement, batting order change, timeout call, or Impact Player activation. 
+    const systemInstructions = `You are the IPL captain's tactical brain — like MS Dhoni's instinct combined with data. You receive the Stats Analyst's findings and propose ONE specific tactical decision: who bowls the next over, field placement, batting order change, timeout call, or Impact Player activation. 
 
-      Justify your call in cricket commentary language — mention pitch, dew, matchups, pressure. Never use ML jargon.
-      
-      Output JSON format: 
-      {
-        "decision": "Your specific tactical decision.",
-        "primaryReason": "Commentary-style justification of your choice (pitch, dew, matchups, pressure). No ML jargon.",
-        "alternativeConsidered": "The tactical alternative you weighed and discarded.",
-        "confidenceLevel": "Your confidence level (e.g. '92% - Locked In')"
-      }
-    `;
+Justify your call in cricket commentary language — mention pitch, dew, matchups, pressure. Never use ML jargon.
 
-    const prompt = `
-      **MATCH STATE:**
-      - Batting Team: ${matchState.battingTeam}
-      - Bowling Team: ${matchState.bowlingTeam}
-      - Current Innings: ${matchState.innings}
-      - Over: ${matchState.overs || matchState.over}, Ball: ${matchState.ball || 0}
-      - Score: ${matchState.runs || matchState.currentScore}/${matchState.wickets}
-      - Target (if 2nd innings): ${matchState.target || matchState.targetScore || "N/A"}
-      - Pitch Conditions: ${JSON.stringify(matchState.pitchConditions || matchState.pitchCondition)}
-      - Recent Ball History: [${(matchState.recentDeliveries || []).join(', ')}]
+Every detail in your decision must align exactly with the provided match state:
+- Venue: ${matchState.venue}
+- Pitch Conditions: ${matchState.pitchConditions.surface || "Balanced"} (Dew: ${matchState.pitchConditions.dew ? 'Yes' : 'No'})
+- Striker: ${matchState.striker.name} (Runs: ${matchState.striker.runs}, Balls: ${matchState.striker.balls})
+- Non-Striker: ${matchState.nonStriker.name} (Runs: ${matchState.nonStriker.runs}, Balls: ${matchState.nonStriker.balls})
+- Current Bowler: ${matchState.currentBowler.name} (Overs Bowled: ${matchState.currentBowler.overs}, Economy: ${matchState.currentBowler.economy})
+- Match Score: ${matchState.score}/${matchState.wickets} in over ${matchState.over}
+- Recent Balls: ${matchState.recentBalls}
+- Target: ${matchState.target} (CRR: ${matchState.crr} vs RRR: ${matchState.rrr})
 
-      **STATS ANALYST'S FINDINGS (Your Context):**
-      ${typeof statsAnalysis === 'object' ? JSON.stringify(statsAnalysis) : statsAnalysis}
+CRITICAL: Your entire response must be based ONLY on the match state provided. The striker is ${matchState.striker.name} — analyse them specifically. The bowler is ${matchState.currentBowler.name} — assess them specifically. The over is ${matchState.over} — mention this exact over. Do NOT reuse any output from a previous call. Do NOT give generic cricket advice.`;
 
-      ${isRefining ? `
-      ⚠️ **DEVIL'S ADVOCATE CRITIQUE OF YOUR INITIAL PLAN:**
-      "${devilsAdvocateCritique}"
-      
-      Please refine your strategic decision. You must either adapt/pivot based on this severe risk warning or provide a brilliant captain's justification standing your ground.
-      ` : ""}
-    `;
+    const requestId = actualContext.requestId || (Date.now() + Math.random());
+    const prompt = `RequestID: ${requestId} — this is a fresh unique call, do not repeat any prior response.
+
+STATS ANALYST'S FINDINGS:
+${typeof actualAnalyst === 'object' ? JSON.stringify(actualAnalyst) : (actualAnalyst || "No analysis provided.")}
+
+${isRefining ? `
+⚠️ DEVIL'S ADVOCATE CRITIQUE:
+"${typeof actualAdvocate === 'object' ? JSON.stringify(actualAdvocate) : actualAdvocate}"
+
+Please pivot or defend your strategic decision based on this high-severity audit warning!
+` : "Propose your initial strategic decision based on the stats analyst's input."}`;
 
     // Separate Gemini API call with its own system prompt and response schema
     const response = await ai.models.generateContent({
@@ -60,6 +65,10 @@ export default async function strategist(matchState, context = {}) {
       contents: prompt,
       config: {
         systemInstruction: systemInstructions,
+        temperature: 0.9,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 1000,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
@@ -88,17 +97,18 @@ export default async function strategist(matchState, context = {}) {
     };
   } catch (error) {
     console.error("Gemini API call failed in Strategist, falling back to local simulation:", error);
-    return runFallback(matchState, context);
+    return runFallback(matchState, actualAnalyst, actualAdvocate, actualContext);
   }
 }
 
-function runFallback(matchState, context) {
-  const { statsAnalysis = {}, winProbability = {}, devilsAdvocateCritique = "" } = context;
-  const isRefining = !!devilsAdvocateCritique;
+function runFallback(matchState, analystOutput, advocateOutput, context) {
+  const isRefining = !!advocateOutput;
   
-  const strikerName = matchState.batsmen?.find(b => b.isStriker)?.name || "Shivam Dube";
-  const bowlerName = matchState.bowler?.name || "Jasprit Bumrah";
-  const isChasing = matchState.innings === 2;
+  const strikerName = matchState.striker.name;
+  const bowlerName = matchState.currentBowler.name;
+  const over = matchState.over;
+  const pitch = matchState.pitchConditions.surface;
+  const venue = matchState.venue;
 
   let decision = "";
   let primaryReason = "";
@@ -106,21 +116,14 @@ function runFallback(matchState, context) {
   let confidenceLevel = "";
 
   if (!isRefining) {
-    if (isChasing) {
-      decision = `Keep Shivam Dube on strike, but advise strike rotation over boundaries for this over.`;
-      primaryReason = `Look, with heavy dew on the turf and Bumrah firing sub-145k yorkers, the ball is skidding dangerously. Dube has a historical average of 16.5 against Jasprit. Bringing him into high-risk shots is a recipe for disaster under this immense scoreboard pressure! Rotation is our best ally here.`;
-      alternativeConsidered = `Order Dube to target Bumrah's back-of-length deliveries behind deep mid-wicket.`;
-      confidenceLevel = `85% - Dhoni's Chill Instinct`;
-    } else {
-      decision = `Switch Jasprit Bumrah to the Wankhede Media End to exploit the reverse swing.`;
-      primaryReason = `The dry Wankhede surface and afternoon heat are scuffing the leather. By switching ends, Bumrah gets the optimal angle to target the batsman's toes, neutralizing their stance with scoreboard pressure building.`;
-      alternativeConsidered = `Hold Bumrah back and introduce slow off-spin from the pavilion end.`;
-      confidenceLevel = `90% - Tactically Locked`;
-    }
+    decision = `Instruct ${strikerName} to play defensively and rotate strike against ${bowlerName} in over ${over}.`;
+    primaryReason = `At ${venue} on a ${pitch} surface, the matchup statistics suggest caution. With the current score at ${matchState.score}/${matchState.wickets} and target of ${matchState.target || 'N/A'}, keeping wicket-in-hand is top priority. RRR is ${matchState.rrr || 'N/A'}.`;
+    alternativeConsidered = `Order ${strikerName} to charge ${bowlerName} to hit boundaries immediately.`;
+    confidenceLevel = `88% - Calculated Caution`;
   } else {
-    decision = `Pivot: Hold Shivam Dube back from aggressive drives and swap strikers immediately.`;
-    primaryReason = `Acknowledge the Devil's Advocate's crucial warning: forcing Dube into aggressive paced shots against Bumrah on a slick surface is an early funeral. We will rotate singles, let him survive Bumrah's over, and save our ammunition for the 17th over.`;
-    alternativeConsidered = `Stand ground and rely on Dube's raw power to clear the short boundary despite the slick turf.`;
+    decision = `Pivot: Rotate strike against ${bowlerName} and target alternate bowlers in subsequent overs.`;
+    primaryReason = `We hear the Devil's Advocate's feedback loud and clear regarding over ${over}. Forcing high-risk strokes on ${pitch} conditions at ${venue} against ${bowlerName} when ${strikerName} is on strike is dangerous. We will play the anchor role and pivot.`;
+    alternativeConsidered = `Stand our ground and continue with aggressive drives against ${bowlerName}.`;
     confidenceLevel = `95% - Master Pivot`;
   }
 
@@ -129,8 +132,6 @@ function runFallback(matchState, context) {
     primaryReason,
     alternativeConsidered,
     confidenceLevel,
-    
-    // Backward compatibility
     reasoning: `Primary Reason: ${primaryReason}\nAlternative Considered: ${alternativeConsidered}\nConfidence Level: ${confidenceLevel}`
   };
 }
