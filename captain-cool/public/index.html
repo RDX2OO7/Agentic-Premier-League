@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Captain Cool - Multi-Agent IPL Cricket Strategy System</title>
+  <!-- Modern Premium Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      --bg-primary: #070a13;
+      --bg-secondary: #0d1222;
+      --glass-bg: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.07);
+      --glass-hover: rgba(255, 255, 255, 0.06);
+      --color-text-main: #f3f4f6;
+      --color-text-muted: #9ca3af;
+      --neon-green: #10b981;
+      --neon-blue: #06b6d4;
+      --neon-purple: #8b5cf6;
+      --neon-gold: #f59e0b;
+      --neon-red: #ef4444;
+      --shadow-glow: 0 0 15px rgba(6, 182, 212, 0.15);
+      --shadow-glow-green: 0 0 15px rgba(16, 185, 129, 0.2);
+      --shadow-glow-red: 0 0 15px rgba(239, 68, 68, 0.2);
+      --font-outfit: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+      background-attachment: fixed;
+      color: var(--color-text-main);
+      font-family: var(--font-outfit);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--glass-border);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* HEADER */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--glass-border);
+      margin-bottom: 30px;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #fff;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .logo-title h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #ffffff, var(--neon-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-title p {
+      font-size: 13px;
+      color: var(--color-text-muted);
+      font-weight: 500;
+    }
+
+    .api-badge {
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      color: var(--neon-blue);
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .api-badge .dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--neon-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--neon-green);
+    }
+
+    /* MAIN LAYOUT */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* GLASS CARD COMMON STYLE */
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: var(--glass-hover);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .card-title i {
+      color: var(--neon-blue);
+    }
+
+    /* SCENARIO SELECTOR */
+    .section-spacing {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    select, input, textarea {
+      width: 100%;
+      background: rgba(13, 18, 34, 0.6);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      color: #fff;
+      padding: 10px 14px;
+      font-family: var(--font-outfit);
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    select:focus, input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--neon-blue);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.15);
+    }
+
+    /* MATCH CONFIGURATOR */
+    .form-group-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+      border: none;
+      color: white;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+      filter: brightness(1.1);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* RIGHT PANEL CONTENT */
+    .arena-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* LIVE METRICS HEADER */
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .metrics-bar {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .metric-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .win-prob-title {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .win-prob-bar-container {
+      width: 100%;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      border: 1px solid var(--glass-border);
+    }
+
+    .win-prob-batting {
+      height: 100%;
+      background: linear-gradient(to right, var(--neon-green), #059669);
+      width: 50%;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .win-prob-bowling {
+      height: 100%;
+      background: linear-gradient(to right, #0284c7, var(--neon-blue));
+      width: 50%;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .rates-container {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      height: 100%;
+    }
+
+    .rate-box {
+      text-align: center;
+    }
+
+    .rate-label {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .rate-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .rate-val.blue {
+      color: var(--neon-blue);
+    }
+    
+    .rate-val.gold {
+      color: var(--neon-gold);
+    }
+
+    .matchup-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .matchup-player {
+      flex: 1;
+      text-align: center;
+    }
+
+    .matchup-player-name {
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .matchup-player-role {
+      font-size: 10px;
+      color: var(--color-text-muted);
+    }
+
+    .matchup-vs {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--neon-purple);
+    }
+
+    /* DEBATE ARENA */
+    .debate-arena-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 10px;
+      margin-top: 10px;
+    }
+
+    .debate-arena-title span {
+      background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .agents-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .agents-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .agent-card {
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+      background: rgba(13, 18, 34, 0.4);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s;
+    }
+
+    .agent-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .agent-card-header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .agent-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .agent-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .agent-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .agent-role {
+      font-size: 10px;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .agent-status-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 30px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .agent-card-body {
+      padding: 16px;
+      flex: 1;
+    }
+
+    .agent-decision {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+      line-height: 1.4;
+      display: flex;
+      gap: 8px;
+    }
+
+    .agent-decision i {
+      margin-top: 3px;
+    }
+
+    .agent-reasoning {
+      font-size: 13px;
+      color: var(--color-text-muted);
+      line-height: 1.6;
+      white-space: pre-line;
+      font-weight: 400;
+    }
+
+    /* CUSTOM STYLING PER AGENT */
+    /* Stats Analyst */
+    .agent-stats .agent-avatar {
+      background: rgba(6, 182, 212, 0.1);
+      color: var(--neon-blue);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    .agent-stats .agent-status-badge {
+      background: rgba(6, 182, 212, 0.08);
+      color: var(--neon-blue);
+    }
+    .agent-stats .agent-decision i {
+      color: var(--neon-blue);
+    }
+
+    /* Strategist Initial */
+    .agent-strat-init .agent-avatar {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--neon-gold);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    .agent-strat-init .agent-status-badge {
+      background: rgba(245, 158, 11, 0.08);
+      color: var(--neon-gold);
+    }
+    .agent-strat-init .agent-decision i {
+      color: var(--neon-gold);
+    }
+
+    /* Devil's Advocate */
+    .agent-devils .agent-avatar {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--neon-red);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .agent-devils .agent-status-badge {
+      background: rgba(239, 68, 68, 0.08);
+      color: var(--neon-red);
+    }
+    .agent-devils .agent-decision i {
+      color: var(--neon-red);
+    }
+    .agent-devils {
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+    .agent-devils:hover {
+      border-color: rgba(239, 68, 68, 0.4);
+      box-shadow: var(--shadow-glow-red);
+    }
+
+    /* Strategist Refined */
+    .agent-strat-ref .agent-avatar {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--neon-green);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .agent-strat-ref .agent-status-badge {
+      background: rgba(16, 185, 129, 0.08);
+      color: var(--neon-green);
+    }
+    .agent-strat-ref .agent-decision i {
+      color: var(--neon-green);
+    }
+    .agent-strat-ref {
+      border-color: rgba(16, 185, 129, 0.25);
+      background: rgba(16, 185, 129, 0.02);
+    }
+    .agent-strat-ref:hover {
+      border-color: rgba(16, 185, 129, 0.4);
+      box-shadow: var(--shadow-glow-green);
+    }
+
+    /* COMMENTATOR CARD (FULL WIDTH) */
+    .commentator-card {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(6, 182, 212, 0.06));
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.05);
+      transition: all 0.3s;
+    }
+
+    .commentator-card:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      box-shadow: 0 0 25px rgba(139, 92, 246, 0.15);
+    }
+
+    .commentator-header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+    }
+
+    .commentator-avatar {
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--neon-purple);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .commentator-title-text h4 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .commentator-title-text p {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .commentator-body {
+      padding: 20px;
+    }
+
+    .commentary-headline {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--neon-gold);
+      margin-bottom: 14px;
+      line-height: 1.4;
+      display: flex;
+      gap: 10px;
+    }
+
+    .commentary-transcript {
+      font-family: var(--font-outfit);
+      font-size: 14.5px;
+      line-height: 1.7;
+      color: #e5e7eb;
+      white-space: pre-line;
+      background: rgba(7, 10, 19, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      padding: 18px;
+      border-radius: 12px;
+    }
+
+    /* UTILITY CLASSES */
+    .text-center { text-align: center; }
+    .w-full { width: 100%; }
+    
+    /* LOADER */
+    .loader-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(7, 10, 19, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      border-radius: 16px;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(6, 182, 212, 0.1);
+      border-radius: 50%;
+      border-top-color: var(--neon-blue);
+      animation: spin 1s linear infinite;
+    }
+
+    .loader-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--neon-blue);
+      letter-spacing: 0.5px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--color-text-muted);
+    }
+
+    .empty-state i {
+      font-size: 48px;
+      color: var(--glass-border);
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.1));
+      padding: 24px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-border);
+    }
+
+    .empty-state h3 {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .empty-state p {
+      max-width: 400px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- HEADER -->
+    <header>
+      <div class="logo-container">
+        <div class="logo-icon">
+          <i class="fa-solid fa-cricket-bat-ball"></i>
+        </div>
+        <div class="logo-title">
+          <h1>CAPTAIN COOL</h1>
+          <p>Multi-Agent IPL Cricket Strategy System</p>
+        </div>
+      </div>
+      <div class="api-badge">
+        <span class="dot"></span>
+        <span id="apiModeText">GEMINI 2.5 FLASH BRAIN</span>
+      </div>
+    </header>
+
+    <!-- DASHBOARD GRID -->
+    <div class="dashboard-grid">
+      
+      <!-- LEFT PANEL: CONFIGURATION -->
+      <div class="glass-card">
+        <div class="card-title">
+          <i class="fa-solid fa-sliders"></i> Match Control Room
+        </div>
+        
+        <!-- Preset Scenario Selector -->
+        <div class="section-spacing">
+          <label for="scenarioSelect">Select Legendary Scenario</label>
+          <select id="scenarioSelect">
+            <option value="CUSTOM">-- Create Custom Match State --</option>
+            <!-- Loaded dynamically -->
+          </select>
+        </div>
+
+        <hr style="border-color: var(--glass-border); margin: 20px 0;">
+
+        <!-- Match State Inputs -->
+        <form id="matchForm">
+          <div class="form-group-row">
+            <div>
+              <label for="battingTeam">Batting Team</label>
+              <input type="text" id="battingTeam" value="Royal Challengers Bengaluru" required>
+            </div>
+            <div>
+              <label for="bowlingTeam">Bowling Team</label>
+              <input type="text" id="bowlingTeam" value="Mumbai Indians" required>
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div>
+              <label for="innings">Innings</label>
+              <select id="innings">
+                <option value="1">Innings 1</option>
+                <option value="2" selected>Innings 2 (Chasing)</option>
+              </select>
+            </div>
+            <div>
+              <label for="target">Target Score</label>
+              <input type="number" id="target" value="180">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div>
+              <label for="runs">Runs Scored</label>
+              <input type="number" id="runs" value="145" required>
+            </div>
+            <div>
+              <label for="wickets">Wickets Down</label>
+              <input type="number" id="wickets" value="4" min="0" max="10" required>
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div>
+              <label for="overs">Overs Bowled</label>
+              <input type="number" id="overs" value="16.2" step="0.1" max="20" required>
+            </div>
+            <div>
+              <label for="pitchCondition">Pitch Conditions</label>
+              <input type="text" id="pitchCondition" value="Dry turning deck with dew starting" required>
+            </div>
+          </div>
+
+          <!-- Active Players -->
+          <div class="form-group">
+            <label>Striker Batsman</label>
+            <div class="form-group-row" style="margin-bottom: 0;">
+              <input type="text" id="strikerName" placeholder="Name" value="Virat Kohli" required>
+              <input type="number" id="strikerRuns" placeholder="Runs" value="48" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Non-Striker Batsman</label>
+            <div class="form-group-row" style="margin-bottom: 0;">
+              <input type="text" id="nonStrikerName" placeholder="Name" value="Dinesh Karthik" required>
+              <input type="number" id="nonStrikerRuns" placeholder="Runs" value="12" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Active Bowler</label>
+            <div class="form-group-row" style="margin-bottom: 0;">
+              <input type="text" id="bowlerName" placeholder="Name" value="Jasprit Bumrah" required>
+              <input type="number" id="bowlerWickets" placeholder="Wickets" value="2" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="recentDeliveries">Recent Deliveries (Comma Separated)</label>
+            <input type="text" id="recentDeliveries" placeholder="e.g. 1, 4, W, wd, 0, 2" value="1, wd, 4, W, 0, 2">
+          </div>
+
+          <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-brain-circuit"></i> Generate Strategic over Plan
+          </button>
+        </form>
+      </div>
+
+      <!-- RIGHT PANEL: SIMULATION & DEBATE ARENA -->
+      <div class="arena-grid">
+        
+        <!-- Live Metrics Bar -->
+        <div class="glass-card metrics-bar">
+          <!-- Win Probability -->
+          <div class="metric-card">
+            <div class="win-prob-title">
+              <span id="lblBattingTeam">Batting Team</span>
+              <span id="lblBowlingTeam">Bowling Team</span>
+            </div>
+            <div class="win-prob-bar-container">
+              <div id="gaugeBatting" class="win-prob-batting">50%</div>
+              <div id="gaugeBowling" class="win-prob-bowling">50%</div>
+            </div>
+          </div>
+
+          <!-- Rates -->
+          <div class="metric-card">
+            <div class="rates-container">
+              <div class="rate-box">
+                <div class="rate-label">CRR</div>
+                <div id="valCRR" class="rate-val blue">--</div>
+              </div>
+              <div class="rate-box">
+                <div class="rate-label">RRR</div>
+                <div id="valRRR" class="rate-val gold">--</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active matchup -->
+          <div class="metric-card">
+            <div class="matchup-box">
+              <div class="matchup-player">
+                <div id="matchupBatsman" class="matchup-player-name">--</div>
+                <div class="matchup-player-role">STRIKER</div>
+              </div>
+              <div class="matchup-vs">VS</div>
+              <div class="matchup-player">
+                <div id="matchupBowler" class="matchup-player-name">--</div>
+                <div class="matchup-player-role">BOWLER</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Debate Arena Area -->
+        <div class="glass-card" style="position: relative; min-height: 450px;">
+          <!-- Loader Overlay -->
+          <div id="loaderOverlay" class="loader-overlay">
+            <div class="spinner"></div>
+            <div id="loaderStatus" class="loader-text">Analyzing database...</div>
+          </div>
+
+          <!-- Empty State -->
+          <div id="emptyState" class="empty-state">
+            <i class="fa-solid fa-gamepad"></i>
+            <h3>No Active Simulation</h3>
+            <p>Select a scenario or fill in custom match details on the left, then click <b>Generate Strategic over Plan</b> to begin the multi-agent debate!</p>
+          </div>
+
+          <!-- Simulation Contents -->
+          <div id="simulationContent" style="display: none;">
+            <div class="debate-arena-title">
+              <i class="fa-solid fa-circle-nodes"></i> Multi-Agent <span>Debate Arena</span>
+            </div>
+            
+            <br>
+            
+            <!-- Agent Cards Grid -->
+            <div class="agents-container">
+              <!-- Agent 1: Stats Analyst -->
+              <div class="agent-card agent-stats">
+                <div class="agent-card-header">
+                  <div class="agent-identity">
+                    <div class="agent-avatar"><i class="fa-solid fa-chart-line"></i></div>
+                    <div>
+                      <div class="agent-name">Stats Analyst</div>
+                      <div class="agent-role">Data Engine</div>
+                    </div>
+                  </div>
+                  <div class="agent-status-badge">METRICS VERIFIED</div>
+                </div>
+                <div class="agent-card-body">
+                  <div class="agent-decision">
+                    <i class="fa-solid fa-quote-left"></i>
+                    <span id="agentStatsDecision">Analyzing matchups...</span>
+                  </div>
+                  <div id="agentStatsReasoning" class="agent-reasoning">Evaluating historical bowler-batsman indices.</div>
+                </div>
+              </div>
+
+              <!-- Agent 2: Strategist (Initial) -->
+              <div class="agent-card agent-strat-init">
+                <div class="agent-card-header">
+                  <div class="agent-identity">
+                    <div class="agent-avatar"><i class="fa-solid fa-lightbulb"></i></div>
+                    <div>
+                      <div class="agent-name">Strategist (Initial)</div>
+                      <div class="agent-role">Tactical Plan</div>
+                    </div>
+                  </div>
+                  <div class="agent-status-badge">DRAFT FORMED</div>
+                </div>
+                <div class="agent-card-body">
+                  <div class="agent-decision">
+                    <i class="fa-solid fa-quote-left"></i>
+                    <span id="agentStratInitDecision">Formulating strategy...</span>
+                  </div>
+                  <div id="agentStratInitReasoning" class="agent-reasoning">Creating optimal bowling setup.</div>
+                </div>
+              </div>
+
+              <!-- Agent 3: Devil's Advocate -->
+              <div class="agent-card agent-devils">
+                <div class="agent-card-header">
+                  <div class="agent-identity">
+                    <div class="agent-avatar"><i class="fa-solid fa-shield-halved"></i></div>
+                    <div>
+                      <div class="agent-name">Devil's Advocate</div>
+                      <div class="agent-role">Skeptical Auditor</div>
+                    </div>
+                  </div>
+                  <div class="agent-status-badge" style="background: rgba(239, 68, 68, 0.08); color: var(--neon-red);">RISKS HIGHLIGHTED</div>
+                </div>
+                <div class="agent-card-body">
+                  <div class="agent-decision">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span id="agentDevilsDecision">Auditing blueprint...</span>
+                  </div>
+                  <div id="agentDevilsReasoning" class="agent-reasoning">Finding vulnerabilities in the strategist's proposal.</div>
+                </div>
+              </div>
+
+              <!-- Agent 4: Captain Cool (Refined) -->
+              <div class="agent-card agent-strat-ref">
+                <div class="agent-card-header">
+                  <div class="agent-identity">
+                    <div class="agent-avatar"><i class="fa-solid fa-trophy"></i></div>
+                    <div>
+                      <div class="agent-name">Captain Cool (Refined)</div>
+                      <div class="agent-role">Locked Strategy</div>
+                    </div>
+                  </div>
+                  <div class="agent-status-badge">FINAL MASTERPLAN</div>
+                </div>
+                <div class="agent-card-body">
+                  <div class="agent-decision">
+                    <i class="fa-solid fa-award"></i>
+                    <span id="agentStratRefDecision">Refining final strategy...</span>
+                  </div>
+                  <div id="agentStratRefReasoning" class="agent-reasoning">Adjusting parameters to counter Devil's Advocate critique.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Commentator Full-Width Card -->
+            <br>
+            <div class="commentator-card">
+              <div class="commentator-header">
+                <div class="commentator-avatar"><i class="fa-solid fa-microphone-lines"></i></div>
+                <div class="commentator-title-text">
+                  <h4>Broadcast Box</h4>
+                  <p>Atmosphere & Commentary Channel</p>
+                </div>
+              </div>
+              <div class="commentator-body">
+                <div class="commentary-headline">
+                  <i class="fa-solid fa-volume-high"></i>
+                  <span id="commHeadline">Broadcasting commentary...</span>
+                </div>
+                <div id="commTranscript" class="commentary-transcript">Commentary script loading...</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Client JavaScript Logic -->
+  <script>
+    let presetScenarios = [];
+
+    // On Load
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadPresets();
+      
+      // Setup event listeners
+      document.getElementById("scenarioSelect").addEventListener("change", handleScenarioChange);
+      document.getElementById("matchForm").addEventListener("submit", handleSubmit);
+    });
+
+    // Load Scenario Presets from Express API
+    async function loadPresets() {
+      try {
+        const res = await fetch("/api/scenarios");
+        const json = await res.json();
+        
+        if (json.success) {
+          presetScenarios = json.scenarios;
+          const selector = document.getElementById("scenarioSelect");
+          
+          presetScenarios.forEach(scen => {
+            const opt = document.createElement("option");
+            opt.value = scen.id;
+            opt.textContent = scen.title;
+            selector.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load presets", err);
+      }
+    }
+
+    // Populate inputs when preset is selected
+    function handleScenarioChange(e) {
+      const id = e.target.value;
+      if (id === "CUSTOM") {
+        return; // Let user edit freely
+      }
+
+      const scen = presetScenarios.find(s => s.id === id);
+      if (!scen) return;
+
+      document.getElementById("battingTeam").value = scen.battingTeam;
+      document.getElementById("bowlingTeam").value = scen.bowlingTeam;
+      document.getElementById("innings").value = scen.innings;
+      document.getElementById("target").value = scen.target || "";
+      document.getElementById("runs").value = scen.runs;
+      document.getElementById("wickets").value = scen.wickets;
+      document.getElementById("overs").value = scen.overs;
+      document.getElementById("pitchCondition").value = scen.pitchCondition;
+
+      const striker = scen.batsmen.find(b => b.isStriker) || scen.batsmen[0];
+      const nonStriker = scen.batsmen.find(b => !b.isStriker) || scen.batsmen[1];
+
+      document.getElementById("strikerName").value = striker ? striker.name : "";
+      document.getElementById("strikerRuns").value = striker ? striker.runs : 0;
+      document.getElementById("nonStrikerName").value = nonStriker ? nonStriker.name : "";
+      document.getElementById("nonStrikerRuns").value = nonStriker ? nonStriker.runs : 0;
+      
+      document.getElementById("bowlerName").value = scen.bowler ? scen.bowler.name : "";
+      document.getElementById("bowlerWickets").value = scen.bowler ? scen.bowler.wickets : 0;
+
+      document.getElementById("recentDeliveries").value = (scen.recentDeliveries || []).join(", ");
+    }
+
+    // Form submit - trigger orchestrator API
+    async function handleSubmit(e) {
+      e.preventDefault();
+      
+      const loader = document.getElementById("loaderOverlay");
+      const empty = document.getElementById("emptyState");
+      const content = document.getElementById("simulationContent");
+      const loaderStatus = document.getElementById("loaderStatus");
+
+      // Hide empty state, show loader, reset contents
+      empty.style.display = "none";
+      content.style.display = "none";
+      loader.style.display = "flex";
+
+      // Collect matchState payload from form
+      const battingTeam = document.getElementById("battingTeam").value;
+      const bowlingTeam = document.getElementById("bowlingTeam").value;
+      const innings = parseInt(document.getElementById("innings").value);
+      const target = document.getElementById("target").value ? parseInt(document.getElementById("target").value) : null;
+      const runs = parseInt(document.getElementById("runs").value);
+      const wickets = parseInt(document.getElementById("wickets").value);
+      const overs = parseFloat(document.getElementById("overs").value);
+      const pitchCondition = document.getElementById("pitchCondition").value;
+
+      const strikerName = document.getElementById("strikerName").value;
+      const strikerRuns = parseInt(document.getElementById("strikerRuns").value);
+      const nonStrikerName = document.getElementById("nonStrikerName").value;
+      const nonStrikerRuns = parseInt(document.getElementById("nonStrikerRuns").value);
+
+      const bowlerName = document.getElementById("bowlerName").value;
+      const bowlerWickets = parseInt(document.getElementById("bowlerWickets").value);
+
+      const recentStr = document.getElementById("recentDeliveries").value;
+      const recentDeliveries = recentStr.split(",").map(s => s.trim()).filter(s => s.length > 0);
+
+      const payload = {
+        battingTeam,
+        bowlingTeam,
+        innings,
+        target,
+        runs,
+        wickets,
+        overs,
+        pitchCondition,
+        batsmen: [
+          { name: strikerName, runs: strikerRuns, balls: Math.round(strikerRuns * 0.8), isStriker: true },
+          { name: nonStrikerName, runs: nonStrikerRuns, balls: Math.round(nonStrikerRuns * 0.9), isStriker: false }
+        ],
+        bowler: { name: bowlerName, overs: 2, wickets: bowlerWickets, runs: 15 },
+        recentDeliveries
+      };
+
+      // Sequential loader labels for professional visual UX
+      let progressStages = [
+        "Analyzing historical player matchups...",
+        "Formulating initial tactical setup...",
+        "Challenging strategy for blind spots (Devil's Advocate)...",
+        "Captain Cool locking in refined over adjustments...",
+        "Ready! Transmitting script to broadcast box..."
+      ];
+      
+      let stageIdx = 0;
+      const interval = setInterval(() => {
+        if (stageIdx < progressStages.length) {
+          loaderStatus.textContent = progressStages[stageIdx];
+          stageIdx++;
+        }
+      }, 900);
+
+      try {
+        const res = await fetch("/api/strategy", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const json = await res.json();
+        
+        clearInterval(interval);
+        
+        if (json.success) {
+          renderResults(json.data);
+        } else {
+          alert("Error simulating strategy: " + json.error);
+          loader.style.display = "none";
+          empty.style.display = "flex";
+        }
+      } catch (err) {
+        clearInterval(interval);
+        console.error("API error", err);
+        alert("Server failed to respond. Check if index.js server is running.");
+        loader.style.display = "none";
+        empty.style.display = "flex";
+      }
+    }
+
+    // Render results in Dashboard
+    function renderResults(data) {
+      // 1. Update Metrics
+      document.getElementById("lblBattingTeam").textContent = data.matchState.battingTeam;
+      document.getElementById("lblBowlingTeam").textContent = data.matchState.bowlingTeam;
+
+      // Win probability gauge
+      const batProb = data.winProbability.battingWinProb;
+      const bowlProb = data.winProbability.bowlingWinProb;
+      document.getElementById("gaugeBatting").style.width = batProb + "%";
+      document.getElementById("gaugeBatting").textContent = batProb + "%";
+      document.getElementById("gaugeBowling").style.width = bowlProb + "%";
+      document.getElementById("gaugeBowling").textContent = bowlProb + "%";
+
+      // Rates
+      document.getElementById("valCRR").textContent = data.winProbability.currentRunRate.toFixed(2);
+      document.getElementById("valRRR").textContent = data.matchState.innings === 2 ? data.winProbability.requiredRunRate.toFixed(2) : "N/A";
+
+      // Matchup
+      const striker = data.matchState.batsmen.find(b => b.isStriker) || data.matchState.batsmen[0];
+      document.getElementById("matchupBatsman").textContent = striker ? striker.name : "--";
+      document.getElementById("matchupBowler").textContent = data.matchState.bowler ? data.matchState.bowler.name : "--";
+
+      // 2. Agents Card Injection
+      const agents = data.agents;
+      
+      // Stats Analyst
+      document.getElementById("agentStatsDecision").textContent = agents.statsAnalyst.decision;
+      document.getElementById("agentStatsReasoning").textContent = agents.statsAnalyst.reasoning;
+
+      // Strategist Initial
+      document.getElementById("agentStratInitDecision").textContent = agents.strategistInitial.decision;
+      document.getElementById("agentStratInitReasoning").textContent = agents.strategistInitial.reasoning;
+
+      // Devil's Advocate
+      document.getElementById("agentDevilsDecision").textContent = agents.devilsAdvocate.decision;
+      document.getElementById("agentDevilsReasoning").textContent = agents.devilsAdvocate.reasoning;
+
+      // Strategist Refined
+      document.getElementById("agentStratRefDecision").textContent = agents.strategistRefined.decision;
+      document.getElementById("agentStratRefReasoning").textContent = agents.strategistRefined.reasoning;
+
+      // Commentator
+      document.getElementById("commHeadline").textContent = agents.commentator.decision;
+      document.getElementById("commTranscript").textContent = agents.commentator.reasoning;
+
+      // Swap overlay states
+      document.getElementById("loaderOverlay").style.display = "none";
+      document.getElementById("simulationContent").style.display = "block";
+    }
+  </script>
+</body>
+</html>

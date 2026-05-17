@@ -1,0 +1,19 @@
+{
+  "name": "captain-cool",
+  "version": "1.0.0",
+  "description": "Multi-Agent IPL Cricket Strategy System using Google Gemini API (gemini-2.5-flash)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.3.0",
+    "axios": "^1.6.8",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "author": "Antigravity",
+  "license": "MIT"
+}
