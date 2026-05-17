@@ -325,15 +325,17 @@ export async function getTeamForm(playerNames) {
  */
 async function fetchFromCricbuzz(endpoint, params = {}) {
   const apiKey = process.env.RAPIDAPI_KEY || process.env.CRICBUZZ_API_KEY;
+  const host = process.env.RAPIDAPI_HOST || 'cricbuzz-cricket2.p.rapidapi.com';
+  
   if (!apiKey) {
     throw new Error("Missing RapidAPI Key for Cricbuzz API");
   }
 
-  const response = await axios.get(`https://cricbuzz-cricket.p.rapidapi.com${endpoint}`, {
+  const response = await axios.get(`https://${host}${endpoint}`, {
     params,
     headers: {
       'x-rapidapi-key': apiKey,
-      'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com'
+      'x-rapidapi-host': host
     }
   });
   return response.data;
