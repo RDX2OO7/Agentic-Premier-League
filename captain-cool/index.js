@@ -7,8 +7,8 @@ import 'dotenv/config'; // Loads .env variables automatically
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { runStrategySystem } from './orchestrator.js';
-import { PRESET_SCENARIOS, validateMatchState, IPLMatchState } from './matchState.js';
+import { runStrategySystem, runCaptainCool } from './orchestrator.js';
+import { PRESET_SCENARIOS, validateMatchState, IPLMatchState, SAMPLE_MATCH_STATE } from './matchState.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +20,39 @@ app.use(express.json());
 
 // Serve static dashboard files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
+
+/**
+ * API: Get the CSK vs MI sample match state
+ */
+app.get('/sample', (req, res) => {
+  res.json(SAMPLE_MATCH_STATE);
+});
+
+/**
+ * API: Analyze match state - returns full debate transcript + final commentary
+ */
+app.post('/analyze', async (req, res) => {
+  try {
+    const rawState = req.body;
+    const matchState = validateMatchState(rawState);
+    
+    // Execute orchestrator using the main runCaptainCool function
+    const result = await runCaptainCool(matchState);
+    
+    res.json({
+      success: true,
+      transcript: result.transcript,
+      commentary: result.agents.commentator,
+      data: result
+    });
+  } catch (error) {
+    console.error("API error while generating strategy via /analyze:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
 /**
  * API: Get all preset scenarios
@@ -38,7 +71,7 @@ app.get('/api/scenarios', (req, res) => {
 });
 
 /**
- * API: Analyze match state using multi-agent strategy system
+ * API: Analyze match state using multi-agent strategy system (Dashboard Backward Compatibility)
  */
 app.post('/api/strategy', async (req, res) => {
   try {

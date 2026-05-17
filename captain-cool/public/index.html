@@ -3,31 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Captain Cool - Multi-Agent IPL Cricket Strategy System</title>
-  <!-- Modern Premium Google Font -->
+  <title>Captain Cool - IPL Cricket Multi-Agent Strategy Engine</title>
+  <!-- Premium Outfit and JetBrains Mono Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <style>
     :root {
-      --bg-primary: #070a13;
-      --bg-secondary: #0d1222;
-      --glass-bg: rgba(255, 255, 255, 0.03);
-      --glass-border: rgba(255, 255, 255, 0.07);
-      --glass-hover: rgba(255, 255, 255, 0.06);
+      --bg-primary: #050a06; /* Dark Turf Green */
+      --bg-secondary: #0a140c; /* Stadium Outfield */
+      --turf-green: #15803d; /* Classic Grass Green */
+      --glass-bg: rgba(255, 255, 255, 0.025);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-hover: rgba(255, 255, 255, 0.05);
       --color-text-main: #f3f4f6;
       --color-text-muted: #9ca3af;
-      --neon-green: #10b981;
+      --neon-green: #22c55e;
       --neon-blue: #06b6d4;
-      --neon-purple: #8b5cf6;
-      --neon-gold: #f59e0b;
+      --neon-purple: #a855f7;
+      --neon-gold: #fbbf24;
       --neon-red: #ef4444;
-      --shadow-glow: 0 0 15px rgba(6, 182, 212, 0.15);
-      --shadow-glow-green: 0 0 15px rgba(16, 185, 129, 0.2);
-      --shadow-glow-red: 0 0 15px rgba(239, 68, 68, 0.2);
+      --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.15);
       --font-outfit: 'Outfit', sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
     }
@@ -41,8 +40,11 @@
     body {
       background-color: var(--bg-primary);
       background-image: 
-        radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+        radial-gradient(circle at 10% 20%, rgba(34, 197, 94, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+        linear-gradient(rgba(255, 255, 255, 0.005) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.005) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
       background-attachment: fixed;
       color: var(--color-text-main);
       font-family: var(--font-outfit);
@@ -89,7 +91,7 @@
     }
 
     .logo-icon {
-      background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+      background: linear-gradient(135deg, var(--neon-green), var(--neon-gold));
       width: 48px;
       height: 48px;
       border-radius: 12px;
@@ -97,15 +99,15 @@
       align-items: center;
       justify-content: center;
       font-size: 24px;
-      color: #fff;
+      color: #050a06;
       box-shadow: var(--shadow-glow);
     }
 
     .logo-title h1 {
       font-size: 26px;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: -0.5px;
-      background: linear-gradient(to right, #ffffff, var(--neon-blue));
+      background: linear-gradient(to right, #ffffff, var(--neon-gold));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -117,13 +119,13 @@
     }
 
     .api-badge {
-      background: rgba(6, 182, 212, 0.08);
-      border: 1px solid rgba(6, 182, 212, 0.2);
-      color: var(--neon-blue);
+      background: rgba(251, 191, 36, 0.08);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      color: var(--neon-gold);
       padding: 6px 14px;
       border-radius: 30px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -137,10 +139,10 @@
       box-shadow: 0 0 8px var(--neon-green);
     }
 
-    /* MAIN LAYOUT */
+    /* DASHBOARD GRID */
     .dashboard-grid {
       display: grid;
-      grid-template-columns: 350px 1fr;
+      grid-template-columns: 380px 1fr;
       gap: 24px;
     }
 
@@ -157,8 +159,9 @@
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--glass-border);
       border-radius: 16px;
-      padding: 20px;
+      padding: 24px;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
     }
 
     .glass-card:hover {
@@ -168,87 +171,86 @@
 
     .card-title {
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 800;
       color: #fff;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
       display: flex;
       align-items: center;
       gap: 8px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 10px;
     }
 
     .card-title i {
-      color: var(--neon-blue);
+      color: var(--neon-gold);
     }
 
-    /* SCENARIO SELECTOR */
-    .section-spacing {
-      margin-bottom: 20px;
-    }
-
+    /* MATCH CONFIGURATOR FORM */
     label {
       display: block;
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       color: var(--color-text-muted);
       text-transform: uppercase;
       margin-bottom: 6px;
       letter-spacing: 0.5px;
     }
 
-    select, input, textarea {
+    select, input {
       width: 100%;
-      background: rgba(13, 18, 34, 0.6);
+      background: rgba(5, 10, 6, 0.8);
       border: 1px solid var(--glass-border);
       border-radius: 10px;
       color: #fff;
-      padding: 10px 14px;
+      padding: 12px 14px;
       font-family: var(--font-outfit);
       font-size: 14px;
       transition: all 0.2s;
     }
 
-    select:focus, input:focus, textarea:focus {
+    select:focus, input:focus {
       outline: none;
-      border-color: var(--neon-blue);
-      box-shadow: 0 0 10px rgba(6, 182, 212, 0.15);
+      border-color: var(--neon-gold);
+      box-shadow: 0 0 10px rgba(251, 191, 36, 0.15);
     }
 
-    /* MATCH CONFIGURATOR */
     .form-group-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
 
     .form-group {
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+      background: linear-gradient(135deg, var(--neon-gold), #d97706);
       border: none;
-      color: white;
-      padding: 14px 20px;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 700;
+      color: #050a06;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 800;
       cursor: pointer;
       width: 100%;
-      margin-top: 10px;
+      margin-top: 15px;
       transition: all 0.3s;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      box-shadow: var(--shadow-glow);
+      box-shadow: 0 4px 15px rgba(251, 191, 36, 0.2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+      box-shadow: 0 6px 25px rgba(251, 191, 36, 0.4);
       filter: brightness(1.1);
     }
 
@@ -266,8 +268,8 @@
     /* LIVE METRICS HEADER */
     .metrics-bar {
       display: grid;
-      grid-template-columns: 1.2fr 1fr 1fr;
-      gap: 16px;
+      grid-template-columns: 1.5fr 1fr 1fr;
+      gap: 20px;
     }
 
     @media (max-width: 768px) {
@@ -285,46 +287,50 @@
     .win-prob-title {
       display: flex;
       justify-content: space-between;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 800;
       margin-bottom: 8px;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .win-prob-bar-container {
       width: 100%;
-      height: 18px;
+      height: 24px;
       background: rgba(255, 255, 255, 0.05);
-      border-radius: 20px;
+      border-radius: 30px;
       overflow: hidden;
       display: flex;
       border: 1px solid var(--glass-border);
+      position: relative;
     }
 
     .win-prob-batting {
       height: 100%;
-      background: linear-gradient(to right, var(--neon-green), #059669);
+      background: linear-gradient(to right, var(--neon-green), #15803d);
       width: 50%;
-      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
-      font-weight: 800;
+      font-size: 11px;
+      font-weight: 900;
       color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     }
 
     .win-prob-bowling {
       height: 100%;
       background: linear-gradient(to right, #0284c7, var(--neon-blue));
       width: 50%;
-      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
-      font-weight: 800;
+      font-size: 11px;
+      font-weight: 900;
       color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     }
 
     .rates-container {
@@ -341,13 +347,14 @@
     .rate-label {
       font-size: 11px;
       color: var(--color-text-muted);
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .rate-val {
-      font-size: 22px;
-      font-weight: 800;
+      font-size: 24px;
+      font-weight: 900;
       color: #fff;
     }
 
@@ -372,301 +379,292 @@
     }
 
     .matchup-player-name {
-      font-size: 13px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      color: #fff;
     }
 
     .matchup-player-role {
       font-size: 10px;
       color: var(--color-text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
     }
 
     .matchup-vs {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--glass-border);
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      font-weight: 800;
-      color: var(--neon-purple);
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--neon-gold);
     }
 
-    /* DEBATE ARENA */
-    .debate-arena-title {
-      font-size: 18px;
+    /* FINAL DECISION BANNER (LARGE & BOLD) */
+    .final-decision-banner {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(217, 119, 6, 0.05));
+      border: 2px dashed var(--neon-gold);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 30px rgba(251, 191, 36, 0.05);
+      transition: all 0.3s;
+    }
+
+    .final-decision-banner:hover {
+      box-shadow: 0 0 25px rgba(251, 191, 36, 0.1);
+    }
+
+    .banner-title {
+      font-size: 12px;
       font-weight: 800;
+      color: var(--neon-gold);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .banner-text {
+      font-size: 26px;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1.3;
+      letter-spacing: -0.5px;
+    }
+
+    /* TACTICAL DEBATE TIMELINE */
+    .timeline-title {
+      font-size: 18px;
+      font-weight: 900;
       color: #fff;
+      margin-bottom: 20px;
       display: flex;
       align-items: center;
       gap: 10px;
       border-bottom: 1px solid var(--glass-border);
       padding-bottom: 10px;
-      margin-top: 10px;
     }
 
-    .debate-arena-title span {
-      background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+    .timeline-title span {
+      background: linear-gradient(to right, var(--neon-green), var(--neon-gold));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .agents-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    @media (max-width: 900px) {
-      .agents-container {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .agent-card {
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid var(--glass-border);
-      background: rgba(13, 18, 34, 0.4);
+    .debate-timeline {
+      position: relative;
+      margin-left: 20px;
+      border-left: 2px solid var(--glass-border);
+      padding-left: 30px;
       display: flex;
       flex-direction: column;
+      gap: 30px;
+    }
+
+    .timeline-item {
+      position: relative;
+    }
+
+    /* Timeline Indicator Node */
+    .timeline-node {
+      position: absolute;
+      left: -42px;
+      top: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--bg-primary);
+      border: 3px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
       transition: all 0.3s;
     }
 
-    .agent-card:hover {
-      transform: translateY(-2px);
+    .timeline-item:hover .timeline-node {
+      transform: scale(1.2);
     }
 
-    .agent-card-header {
-      padding: 12px 16px;
+    .timeline-card {
+      background: rgba(10, 20, 12, 0.4);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 18px;
+      transition: all 0.3s;
+    }
+
+    .timeline-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(10, 20, 12, 0.6);
+    }
+
+    .timeline-card-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--glass-border);
+      align-items: center;
+      margin-bottom: 12px;
+      border-bottom: 1px dashed var(--glass-border);
+      padding-bottom: 8px;
     }
 
-    .agent-identity {
+    .timeline-card-identity {
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .agent-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
+    .timeline-card-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 14px;
     }
 
-    .agent-name {
+    .timeline-card-name {
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 800;
       color: #fff;
     }
 
-    .agent-role {
+    .timeline-card-role {
       font-size: 10px;
       color: var(--color-text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .agent-status-badge {
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 30px;
       font-weight: 700;
       text-transform: uppercase;
     }
 
-    .agent-card-body {
-      padding: 16px;
-      flex: 1;
+    .timeline-badge {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
     }
 
-    .agent-decision {
+    .timeline-decision {
       font-size: 15px;
       font-weight: 700;
-      color: #fff;
-      margin-bottom: 10px;
-      line-height: 1.4;
+      color: #ffffff;
+      margin-bottom: 8px;
       display: flex;
       gap: 8px;
+      align-items: flex-start;
     }
 
-    .agent-decision i {
+    .timeline-decision i {
       margin-top: 3px;
+      color: var(--neon-gold);
     }
 
-    .agent-reasoning {
+    .timeline-reasoning {
       font-size: 13px;
       color: var(--color-text-muted);
       line-height: 1.6;
       white-space: pre-line;
-      font-weight: 400;
     }
 
-    /* CUSTOM STYLING PER AGENT */
-    /* Stats Analyst */
-    .agent-stats .agent-avatar {
+    /* INDIVIDUAL AGENT DECORATION */
+    /* 1. Stats Analyst */
+    .item-stats .timeline-node {
+      border-color: var(--neon-blue);
+      color: var(--neon-blue);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+    }
+    .item-stats .timeline-card-avatar {
       background: rgba(6, 182, 212, 0.1);
       color: var(--neon-blue);
-      border: 1px solid rgba(6, 182, 212, 0.2);
     }
-    .agent-stats .agent-status-badge {
+    .item-stats .timeline-badge {
       background: rgba(6, 182, 212, 0.08);
       color: var(--neon-blue);
     }
-    .agent-stats .agent-decision i {
-      color: var(--neon-blue);
-    }
 
-    /* Strategist Initial */
-    .agent-strat-init .agent-avatar {
-      background: rgba(245, 158, 11, 0.1);
+    /* 2. Strategist (Initial) */
+    .item-strat-init .timeline-node {
+      border-color: var(--neon-gold);
       color: var(--neon-gold);
-      border: 1px solid rgba(245, 158, 11, 0.2);
+      box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
     }
-    .agent-strat-init .agent-status-badge {
-      background: rgba(245, 158, 11, 0.08);
+    .item-strat-init .timeline-card-avatar {
+      background: rgba(251, 191, 36, 0.1);
       color: var(--neon-gold);
     }
-    .agent-strat-init .agent-decision i {
+    .item-strat-init .timeline-badge {
+      background: rgba(251, 191, 36, 0.08);
       color: var(--neon-gold);
     }
 
-    /* Devil's Advocate */
-    .agent-devils .agent-avatar {
+    /* 3. Devil's Advocate */
+    .item-devils .timeline-node {
+      border-color: var(--neon-red);
+      color: var(--neon-red);
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+    }
+    .item-devils .timeline-card-avatar {
       background: rgba(239, 68, 68, 0.1);
       color: var(--neon-red);
-      border: 1px solid rgba(239, 68, 68, 0.2);
     }
-    .agent-devils .agent-status-badge {
+    .item-devils .timeline-badge {
       background: rgba(239, 68, 68, 0.08);
       color: var(--neon-red);
     }
-    .agent-devils .agent-decision i {
-      color: var(--neon-red);
-    }
-    .agent-devils {
-      border-color: rgba(239, 68, 68, 0.25);
-    }
-    .agent-devils:hover {
-      border-color: rgba(239, 68, 68, 0.4);
-      box-shadow: var(--shadow-glow-red);
+    .item-devils .timeline-card {
+      border-color: rgba(239, 68, 68, 0.2);
     }
 
-    /* Strategist Refined */
-    .agent-strat-ref .agent-avatar {
-      background: rgba(16, 185, 129, 0.1);
+    /* 4. Strategist Revision */
+    .item-strat-ref .timeline-node {
+      border-color: var(--neon-green);
       color: var(--neon-green);
-      border: 1px solid rgba(16, 185, 129, 0.2);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
     }
-    .agent-strat-ref .agent-status-badge {
-      background: rgba(16, 185, 129, 0.08);
+    .item-strat-ref .timeline-card-avatar {
+      background: rgba(34, 197, 94, 0.1);
       color: var(--neon-green);
     }
-    .agent-strat-ref .agent-decision i {
+    .item-strat-ref .timeline-badge {
+      background: rgba(34, 197, 94, 0.08);
       color: var(--neon-green);
     }
-    .agent-strat-ref {
-      border-color: rgba(16, 185, 129, 0.25);
-      background: rgba(16, 185, 129, 0.02);
-    }
-    .agent-strat-ref:hover {
-      border-color: rgba(16, 185, 129, 0.4);
-      box-shadow: var(--shadow-glow-green);
+    .item-strat-ref .timeline-card {
+      border-color: rgba(34, 197, 94, 0.25);
+      background: rgba(34, 197, 94, 0.02);
     }
 
-    /* COMMENTATOR CARD (FULL WIDTH) */
-    .commentator-card {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(6, 182, 212, 0.06));
-      border: 1px solid rgba(139, 92, 246, 0.2);
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.05);
-      transition: all 0.3s;
-    }
-
-    .commentator-card:hover {
-      border-color: rgba(139, 92, 246, 0.4);
-      box-shadow: 0 0 25px rgba(139, 92, 246, 0.15);
-    }
-
-    .commentator-header {
-      padding: 14px 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid rgba(139, 92, 246, 0.15);
-    }
-
-    .commentator-avatar {
-      background: rgba(139, 92, 246, 0.15);
+    /* 5. Commentator */
+    .item-commentator .timeline-node {
+      border-color: var(--neon-purple);
       color: var(--neon-purple);
-      border: 1px solid rgba(139, 92, 246, 0.3);
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+    }
+    .item-commentator .timeline-card-avatar {
+      background: rgba(168, 85, 247, 0.1);
+      color: var(--neon-purple);
+    }
+    .item-commentator .timeline-badge {
+      background: rgba(168, 85, 247, 0.08);
+      color: var(--neon-purple);
+    }
+    .item-commentator .timeline-card {
+      border-color: rgba(168, 85, 247, 0.2);
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.04), rgba(6, 182, 212, 0.04));
     }
 
-    .commentator-title-text h4 {
-      font-size: 15px;
-      font-weight: 800;
-      color: #fff;
-    }
-
-    .commentator-title-text p {
-      font-size: 11px;
-      color: var(--color-text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .commentator-body {
-      padding: 20px;
-    }
-
-    .commentary-headline {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--neon-gold);
-      margin-bottom: 14px;
-      line-height: 1.4;
-      display: flex;
-      gap: 10px;
-    }
-
-    .commentary-transcript {
-      font-family: var(--font-outfit);
-      font-size: 14.5px;
-      line-height: 1.7;
-      color: #e5e7eb;
-      white-space: pre-line;
-      background: rgba(7, 10, 19, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.03);
-      padding: 18px;
-      border-radius: 12px;
-    }
-
-    /* UTILITY CLASSES */
-    .text-center { text-align: center; }
-    .w-full { width: 100%; }
-    
-    /* LOADER */
+    /* LOADER OVERLAY */
     .loader-overlay {
       display: none;
       position: absolute;
@@ -674,30 +672,31 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(7, 10, 19, 0.85);
+      background: rgba(5, 10, 6, 0.9);
       backdrop-filter: blur(8px);
       z-index: 100;
       border-radius: 16px;
       align-items: center;
       justify-content: center;
       flex-direction: column;
-      gap: 16px;
+      gap: 18px;
     }
 
     .spinner {
-      width: 50px;
-      height: 50px;
-      border: 3px solid rgba(6, 182, 212, 0.1);
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(251, 191, 36, 0.1);
       border-radius: 50%;
-      border-top-color: var(--neon-blue);
+      border-top-color: var(--neon-gold);
       animation: spin 1s linear infinite;
     }
 
     .loader-text {
       font-size: 15px;
-      font-weight: 700;
-      color: var(--neon-blue);
-      letter-spacing: 0.5px;
+      font-weight: 800;
+      color: var(--neon-gold);
+      letter-spacing: 1px;
+      text-transform: uppercase;
       animation: pulse 1.5s ease-in-out infinite;
     }
 
@@ -712,20 +711,20 @@
 
     /* EMPTY STATE */
     .empty-state {
-      padding: 60px 20px;
+      padding: 80px 20px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 18px;
       color: var(--color-text-muted);
     }
 
     .empty-state i {
-      font-size: 48px;
+      font-size: 50px;
       color: var(--glass-border);
-      background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.1));
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(34, 197, 94, 0.05));
       padding: 24px;
       border-radius: 50%;
       border: 1px solid var(--glass-border);
@@ -733,12 +732,14 @@
 
     .empty-state h3 {
       color: #fff;
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 20px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .empty-state p {
-      max-width: 400px;
+      max-width: 420px;
       font-size: 14px;
     }
   </style>
@@ -773,7 +774,7 @@
         </div>
         
         <!-- Preset Scenario Selector -->
-        <div class="section-spacing">
+        <div class="section-spacing" style="margin-bottom: 20px;">
           <label for="scenarioSelect">Select Legendary Scenario</label>
           <select id="scenarioSelect">
             <option value="CUSTOM">-- Create Custom Match State --</option>
@@ -788,7 +789,7 @@
           <div class="form-group-row">
             <div>
               <label for="battingTeam">Batting Team</label>
-              <input type="text" id="battingTeam" value="Royal Challengers Bengaluru" required>
+              <input type="text" id="battingTeam" value="Chennai Super Kings" required>
             </div>
             <div>
               <label for="bowlingTeam">Bowling Team</label>
@@ -806,64 +807,64 @@
             </div>
             <div>
               <label for="target">Target Score</label>
-              <input type="number" id="target" value="180">
+              <input type="number" id="target" value="185">
             </div>
           </div>
 
           <div class="form-group-row">
             <div>
-              <label for="runs">Runs Scored</label>
-              <input type="number" id="runs" value="145" required>
+              <label for="runs">Score (Runs Scored)</label>
+              <input type="number" id="runs" value="120" required>
             </div>
             <div>
               <label for="wickets">Wickets Down</label>
-              <input type="number" id="wickets" value="4" min="0" max="10" required>
+              <input type="number" id="wickets" value="3" min="0" max="10" required>
             </div>
           </div>
 
           <div class="form-group-row">
             <div>
-              <label for="overs">Overs Bowled</label>
-              <input type="number" id="overs" value="16.2" step="0.1" max="20" required>
+              <label for="overs">Overs Bowled (e.g. 15.0)</label>
+              <input type="number" id="overs" value="15.0" step="0.1" max="20" required>
             </div>
             <div>
               <label for="pitchCondition">Pitch Conditions</label>
-              <input type="text" id="pitchCondition" value="Dry turning deck with dew starting" required>
+              <input type="text" id="pitchCondition" value="True batting surface, quick outfield" required>
             </div>
           </div>
 
           <!-- Active Players -->
           <div class="form-group">
-            <label>Striker Batsman</label>
+            <label>Striker Batsman Options</label>
             <div class="form-group-row" style="margin-bottom: 0;">
-              <input type="text" id="strikerName" placeholder="Name" value="Virat Kohli" required>
-              <input type="number" id="strikerRuns" placeholder="Runs" value="48" required>
+              <input type="text" id="strikerName" placeholder="Name" value="Shivam Dube" required>
+              <input type="number" id="strikerRuns" placeholder="Runs" value="34" required>
             </div>
           </div>
 
           <div class="form-group">
             <label>Non-Striker Batsman</label>
             <div class="form-group-row" style="margin-bottom: 0;">
-              <input type="text" id="nonStrikerName" placeholder="Name" value="Dinesh Karthik" required>
-              <input type="number" id="nonStrikerRuns" placeholder="Runs" value="12" required>
+              <input type="text" id="nonStrikerName" placeholder="Name" value="Ruturaj Gaikwad" required>
+              <input type="number" id="nonStrikerRuns" placeholder="Runs" value="54" required>
             </div>
           </div>
 
           <div class="form-group">
-            <label>Active Bowler</label>
+            <label>Bowler Options</label>
             <div class="form-group-row" style="margin-bottom: 0;">
-              <input type="text" id="bowlerName" placeholder="Name" value="Jasprit Bumrah" required>
-              <input type="number" id="bowlerWickets" placeholder="Wickets" value="2" required>
+              <input type="text" id="bowlerName" placeholder="Bowler Name" value="Jasprit Bumrah" required>
+              <input type="number" id="bowlerWickets" placeholder="Wickets Down" value="0" required>
             </div>
           </div>
 
           <div class="form-group">
             <label for="recentDeliveries">Recent Deliveries (Comma Separated)</label>
-            <input type="text" id="recentDeliveries" placeholder="e.g. 1, 4, W, wd, 0, 2" value="1, wd, 4, W, 0, 2">
+            <input type="text" id="recentDeliveries" placeholder="e.g. 1, 4, W, wd, 0, 2" value="1, 4, 1, 6, W, 1, 0, 2, 1, 4, 1, 1">
           </div>
 
           <button type="submit" class="btn-primary">
-            <i class="fa-solid fa-brain-circuit"></i> Generate Strategic over Plan
+            <i class="fa-solid fa-microphone-lines"></i> Get Captain's Call
           </button>
         </form>
       </div>
@@ -873,7 +874,7 @@
         
         <!-- Live Metrics Bar -->
         <div class="glass-card metrics-bar">
-          <!-- Win Probability -->
+          <!-- Win Probability Gauge -->
           <div class="metric-card">
             <div class="win-prob-title">
               <span id="lblBattingTeam">Batting Team</span>
@@ -916,132 +917,152 @@
         </div>
 
         <!-- Debate Arena Area -->
-        <div class="glass-card" style="position: relative; min-height: 450px;">
+        <div class="glass-card" style="position: relative; min-height: 500px;">
           <!-- Loader Overlay -->
           <div id="loaderOverlay" class="loader-overlay">
             <div class="spinner"></div>
-            <div id="loaderStatus" class="loader-text">Analyzing database...</div>
+            <div id="loaderStatus" class="loader-text">Summoning Agent Debate Brains...</div>
           </div>
 
           <!-- Empty State -->
           <div id="emptyState" class="empty-state">
-            <i class="fa-solid fa-gamepad"></i>
-            <h3>No Active Simulation</h3>
-            <p>Select a scenario or fill in custom match details on the left, then click <b>Generate Strategic over Plan</b> to begin the multi-agent debate!</p>
+            <i class="fa-solid fa-users-gear"></i>
+            <h3>Tactical Playbook Empty</h3>
+            <p>Select a scenario or fill in custom match parameters on the left, then click <b>Get Captain's Call</b> to initiate the agentic debate!</p>
           </div>
 
           <!-- Simulation Contents -->
           <div id="simulationContent" style="display: none;">
-            <div class="debate-arena-title">
-              <i class="fa-solid fa-circle-nodes"></i> Multi-Agent <span>Debate Arena</span>
+            
+            <!-- Final Decision Banner (Large & Bold) -->
+            <div class="final-decision-banner">
+              <div class="banner-title">
+                <i class="fa-solid fa-trophy"></i> Final Captain's Call
+              </div>
+              <div id="finalDecisionText" class="banner-text">
+                Rotate strike against Bumrah's over and preserve wickets!
+              </div>
             </div>
             
             <br>
             
-            <!-- Agent Cards Grid -->
-            <div class="agents-container">
-              <!-- Agent 1: Stats Analyst -->
-              <div class="agent-card agent-stats">
-                <div class="agent-card-header">
-                  <div class="agent-identity">
-                    <div class="agent-avatar"><i class="fa-solid fa-chart-line"></i></div>
-                    <div>
-                      <div class="agent-name">Stats Analyst</div>
-                      <div class="agent-role">Data Engine</div>
+            <div class="timeline-title">
+              <i class="fa-solid fa-circle-nodes"></i> Multi-Agent <span>Debate Timeline</span>
+            </div>
+            
+            <!-- Timeline Arena Flow -->
+            <div class="debate-timeline">
+              
+              <!-- 1. Stats Analyst -->
+              <div class="timeline-item item-stats">
+                <div class="timeline-node"><i class="fa-solid fa-chart-bar"></i></div>
+                <div class="timeline-card">
+                  <div class="timeline-card-header">
+                    <div class="timeline-card-identity">
+                      <div class="timeline-card-avatar"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+                      <div>
+                        <div class="timeline-card-name">Stats Analyst</div>
+                        <div class="timeline-card-role">Data Engine</div>
+                      </div>
                     </div>
+                    <span class="timeline-badge">1. Matchups Analysed</span>
                   </div>
-                  <div class="agent-status-badge">METRICS VERIFIED</div>
-                </div>
-                <div class="agent-card-body">
-                  <div class="agent-decision">
+                  <div class="timeline-decision">
                     <i class="fa-solid fa-quote-left"></i>
-                    <span id="agentStatsDecision">Analyzing matchups...</span>
+                    <span id="agentStatsDecision">Gathering statistics...</span>
                   </div>
-                  <div id="agentStatsReasoning" class="agent-reasoning">Evaluating historical bowler-batsman indices.</div>
+                  <div id="agentStatsReasoning" class="timeline-reasoning">Running local bowler vs batsman indexes.</div>
                 </div>
               </div>
 
-              <!-- Agent 2: Strategist (Initial) -->
-              <div class="agent-card agent-strat-init">
-                <div class="agent-card-header">
-                  <div class="agent-identity">
-                    <div class="agent-avatar"><i class="fa-solid fa-lightbulb"></i></div>
-                    <div>
-                      <div class="agent-name">Strategist (Initial)</div>
-                      <div class="agent-role">Tactical Plan</div>
+              <!-- 2. Strategist (Initial) -->
+              <div class="timeline-item item-strat-init">
+                <div class="timeline-node"><i class="fa-solid fa-lightbulb"></i></div>
+                <div class="timeline-card">
+                  <div class="timeline-card-header">
+                    <div class="timeline-card-identity">
+                      <div class="timeline-card-avatar"><i class="fa-solid fa-chess"></i></div>
+                      <div>
+                        <div class="timeline-card-name">Strategist</div>
+                        <div class="timeline-card-role">Dhoni Tactical Brain</div>
+                      </div>
                     </div>
+                    <span class="timeline-badge">2. Strategy Drafted</span>
                   </div>
-                  <div class="agent-status-badge">DRAFT FORMED</div>
-                </div>
-                <div class="agent-card-body">
-                  <div class="agent-decision">
+                  <div class="timeline-decision">
                     <i class="fa-solid fa-quote-left"></i>
                     <span id="agentStratInitDecision">Formulating strategy...</span>
                   </div>
-                  <div id="agentStratInitReasoning" class="agent-reasoning">Creating optimal bowling setup.</div>
+                  <div id="agentStratInitReasoning" class="timeline-reasoning">Building playbook options.</div>
                 </div>
               </div>
 
-              <!-- Agent 3: Devil's Advocate -->
-              <div class="agent-card agent-devils">
-                <div class="agent-card-header">
-                  <div class="agent-identity">
-                    <div class="agent-avatar"><i class="fa-solid fa-shield-halved"></i></div>
-                    <div>
-                      <div class="agent-name">Devil's Advocate</div>
-                      <div class="agent-role">Skeptical Auditor</div>
+              <!-- 3. Devil's Advocate -->
+              <div class="timeline-item item-devils">
+                <div class="timeline-node"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="timeline-card">
+                  <div class="timeline-card-header">
+                    <div class="timeline-card-identity">
+                      <div class="timeline-card-avatar"><i class="fa-solid fa-shield-halved"></i></div>
+                      <div>
+                        <div class="timeline-card-name">Devil's Advocate</div>
+                        <div class="timeline-card-role">Assistant Coach</div>
+                      </div>
                     </div>
+                    <span id="devilsBadge" class="timeline-badge">3. Risks Checked</span>
                   </div>
-                  <div class="agent-status-badge" style="background: rgba(239, 68, 68, 0.08); color: var(--neon-red);">RISKS HIGHLIGHTED</div>
-                </div>
-                <div class="agent-card-body">
-                  <div class="agent-decision">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span id="agentDevilsDecision">Auditing blueprint...</span>
+                  <div class="timeline-decision">
+                    <i class="fa-solid fa-shield-virus"></i>
+                    <span id="agentDevilsDecision">Auditing plan...</span>
                   </div>
-                  <div id="agentDevilsReasoning" class="agent-reasoning">Finding vulnerabilities in the strategist's proposal.</div>
+                  <div id="agentDevilsReasoning" class="timeline-reasoning">Checking dew parameters and fatigue fatigue states.</div>
                 </div>
               </div>
 
-              <!-- Agent 4: Captain Cool (Refined) -->
-              <div class="agent-card agent-strat-ref">
-                <div class="agent-card-header">
-                  <div class="agent-identity">
-                    <div class="agent-avatar"><i class="fa-solid fa-trophy"></i></div>
-                    <div>
-                      <div class="agent-name">Captain Cool (Refined)</div>
-                      <div class="agent-role">Locked Strategy</div>
+              <!-- 4. Strategist Revision -->
+              <div class="timeline-item item-strat-ref">
+                <div class="timeline-node"><i class="fa-solid fa-arrows-spin"></i></div>
+                <div class="timeline-card">
+                  <div class="timeline-card-header">
+                    <div class="timeline-card-identity">
+                      <div class="timeline-card-avatar"><i class="fa-solid fa-rotate"></i></div>
+                      <div>
+                        <div class="timeline-card-name">Strategist Revision</div>
+                        <div class="timeline-card-role">Master Pivot</div>
+                      </div>
                     </div>
+                    <span id="stratRefBadge" class="timeline-badge">4. Self-Correction Round</span>
                   </div>
-                  <div class="agent-status-badge">FINAL MASTERPLAN</div>
-                </div>
-                <div class="agent-card-body">
-                  <div class="agent-decision">
-                    <i class="fa-solid fa-award"></i>
+                  <div class="timeline-decision">
+                    <i class="fa-solid fa-circle-check"></i>
                     <span id="agentStratRefDecision">Refining final strategy...</span>
                   </div>
-                  <div id="agentStratRefReasoning" class="agent-reasoning">Adjusting parameters to counter Devil's Advocate critique.</div>
+                  <div id="agentStratRefReasoning" class="timeline-reasoning">Updating tactic to counter threats highlighted by Devil's Advocate.</div>
                 </div>
               </div>
-            </div>
 
-            <!-- Commentator Full-Width Card -->
-            <br>
-            <div class="commentator-card">
-              <div class="commentator-header">
-                <div class="commentator-avatar"><i class="fa-solid fa-microphone-lines"></i></div>
-                <div class="commentator-title-text">
-                  <h4>Broadcast Box</h4>
-                  <p>Atmosphere & Commentary Channel</p>
+              <!-- 5. Commentator -->
+              <div class="timeline-item item-commentator">
+                <div class="timeline-node"><i class="fa-solid fa-microphone-lines"></i></div>
+                <div class="timeline-card">
+                  <div class="timeline-card-header">
+                    <div class="timeline-card-identity">
+                      <div class="timeline-card-avatar"><i class="fa-solid fa-bullhorn"></i></div>
+                      <div>
+                        <div class="timeline-card-name">Match Commentator</div>
+                        <div class="timeline-card-role">Broadcast Channel</div>
+                      </div>
+                    </div>
+                    <span class="timeline-badge">5. On-Air Live</span>
+                  </div>
+                  <div class="timeline-decision">
+                    <i class="fa-solid fa-volume-high"></i>
+                    <span id="commHeadline">Broadcasting...</span>
+                  </div>
+                  <div id="commTranscript" class="timeline-reasoning">Transcript output loading.</div>
                 </div>
               </div>
-              <div class="commentator-body">
-                <div class="commentary-headline">
-                  <i class="fa-solid fa-volume-high"></i>
-                  <span id="commHeadline">Broadcasting commentary...</span>
-                </div>
-                <div id="commTranscript" class="commentary-transcript">Commentary script loading...</div>
-              </div>
+
             </div>
 
           </div>
@@ -1121,7 +1142,7 @@
       document.getElementById("recentDeliveries").value = (scen.recentDeliveries || []).join(", ");
     }
 
-    // Form submit - trigger orchestrator API
+    // Form submit - trigger analyze API
     async function handleSubmit(e) {
       e.preventDefault();
       
@@ -1191,7 +1212,8 @@
       }, 900);
 
       try {
-        const res = await fetch("/api/strategy", {
+        // Trigger the dedicated /analyze API to fetch full debate transcript + final commentary
+        const res = await fetch("/analyze", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -1256,14 +1278,43 @@
       // Devil's Advocate
       document.getElementById("agentDevilsDecision").textContent = agents.devilsAdvocate.decision;
       document.getElementById("agentDevilsReasoning").textContent = agents.devilsAdvocate.reasoning;
+      
+      // Devil's Advocate Severity Badge Color Adjustments
+      const devilsBadge = document.getElementById("devilsBadge");
+      const severity = (agents.devilsAdvocate.severity || "medium").toUpperCase();
+      devilsBadge.textContent = "3. Risks Audited (" + severity + ")";
+      if (severity === "HIGH") {
+        devilsBadge.style.background = "rgba(239, 68, 68, 0.15)";
+        devilsBadge.style.color = "var(--neon-red)";
+      } else {
+        devilsBadge.style.background = "rgba(251, 191, 36, 0.1)";
+        devilsBadge.style.color = "var(--neon-gold)";
+      }
 
       // Strategist Refined
-      document.getElementById("agentStratRefDecision").textContent = agents.strategistRefined.decision;
-      document.getElementById("agentStratRefReasoning").textContent = agents.strategistRefined.reasoning;
+      const hasRevision = JSON.stringify(agents.strategistInitial) !== JSON.stringify(agents.strategistRefined);
+      const stratRefBadge = document.getElementById("stratRefBadge");
+      if (hasRevision) {
+        stratRefBadge.textContent = "4. PIVOT TRIGGERED";
+        stratRefBadge.style.background = "rgba(34, 197, 94, 0.15)";
+        stratRefBadge.style.color = "var(--neon-green)";
+        document.getElementById("agentStratRefDecision").textContent = agents.strategistRefined.decision;
+        document.getElementById("agentStratRefReasoning").textContent = agents.strategistRefined.reasoning;
+      } else {
+        stratRefBadge.textContent = "4. INITIAL VALIDATED";
+        stratRefBadge.style.background = "rgba(255, 255, 255, 0.05)";
+        stratRefBadge.style.color = "var(--color-text-muted)";
+        document.getElementById("agentStratRefDecision").textContent = "[Skipped] No high-severity risks identified.";
+        document.getElementById("agentStratRefReasoning").textContent = "The initial strategy proposed by the tactical brain was evaluated as low-risk. The team has committed to the original blueprint.";
+      }
 
       // Commentator
       document.getElementById("commHeadline").textContent = agents.commentator.decision;
       document.getElementById("commTranscript").textContent = agents.commentator.reasoning;
+
+      // 3. Update Final Decision Banner (Large & Bold)
+      const cleanedDecision = agents.commentator.decision.replace("FINAL DECISION — ", "");
+      document.getElementById("finalDecisionText").textContent = cleanedDecision;
 
       // Swap overlay states
       document.getElementById("loaderOverlay").style.display = "none";
