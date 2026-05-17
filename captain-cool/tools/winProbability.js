@@ -1,34 +1,34 @@
 /**
  * Win Probability Tool - "Captain Cool" Multi-Agent Strategy System
- * Calculates the dynamic win probability in a T20/IPL cricket match using a contextual mathematical model.
+ * Calculates the T20/IPL cricket win probability percentage using a robust logistic regression model.
+ * Serves as both a native JS helper and a Gemini function-calling tool.
  */
 
 /**
- * Calculates win probability for the batting team
- * @param {object} matchState - The current state of the match
- * @returns {object} Calculated probabilities, key metrics, and influential factors
+ * Calculates win probability for the batting team using logistic regression.
+ * Supports both direct parameter objects (Gemini tool calls) and the standard MatchState structure.
+ * @param {object} params - Input parameters
+ * @returns {object} Calculated probabilities, key metrics, and key factors
  */
-export async function calculateWinProbability(matchState) {
-  const {
-    battingTeam,
-    bowlingTeam,
-    innings = 1,
-    runs = 0,
-    wickets = 0,
-    overs = 0,
-    target = null,
-    pitchCondition = "Balanced",
-    recentDeliveries = []
-  } = matchState;
+export async function calculateWinProbability(params = {}) {
+  // Support both tool arguments and raw match state mappings
+  const innings = params.innings || 2;
+  const overVal = params.over !== undefined ? params.over : (params.overs || 0);
+  const scoreVal = params.score !== undefined ? params.score : (params.runs || 0);
+  const wicketsVal = params.wickets !== undefined ? params.wickets : 0;
+  const targetVal = params.target !== undefined ? params.target : (params.targetScore || null);
+  const pitchStr = params.pitchFactor || params.pitchCondition || "Balanced";
 
-  // Convert overs (e.g. 16.2) to balls bowled
-  const overInt = Math.floor(overs);
-  const overFrac = Math.round((overs - overInt) * 10);
+  // Convert overs (e.g., 15.0 or 15.3) to balls bowled
+  const overInt = Math.floor(overVal);
+  const overFrac = Math.round((overVal - overInt) * 10);
   const ballsBowled = (overInt * 6) + overFrac;
   const totalBalls = 120;
-  const ballsRemaining = totalBalls - ballsBowled;
-  
-  const currentRunRate = ballsBowled > 0 ? (runs / ballsBowled) * 6 : 0;
+  const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
+  const oversRemaining = ballsRemaining / 6;
+
+  const currentRunRate = ballsBowled > 0 ? (scoreVal / ballsBowled) * 6 : 0;
+  const wicketsLeft = 10 - wicketsVal;
   
   let battingWinProb = 50.0;
   let bowlingWinProb = 50.0;
@@ -37,62 +37,14 @@ export async function calculateWinProbability(matchState) {
   const factors = [];
   let momentum = "Stable";
 
-  // Calculate momentum from recent deliveries
-  if (recentDeliveries && recentDeliveries.length > 0) {
-    const boundaryCount = recentDeliveries.filter(d => d === "4" || d === "6" || d === "nb" || d === "wd").length;
-    const wicketCount = recentDeliveries.filter(d => d === "W" || d === "w").length;
-    
-    if (wicketCount >= 2) {
-      momentum = "Strong Bowling Momentum (recent wickets)";
-    } else if (boundaryCount >= 3) {
-      momentum = "Strong Batting Momentum (recent boundaries)";
-    } else if (wicketCount === 1) {
-      momentum = "Slight Bowling Momentum (recent breakthrough)";
-    } else if (boundaryCount >= 1) {
-      momentum = "Slight Batting Momentum (scoring active)";
-    }
-  }
-
-  // --- INNINGS 1 WIN PROBABILITY MODEL ---
-  if (innings === 1) {
-    // For 1st innings, project the score
-    // Historical average T20 par score is ~175
-    const parScore = pitchCondition.toLowerCase().includes("flat") || pitchCondition.toLowerCase().includes("dew") ? 190 : 
-                     (pitchCondition.toLowerCase().includes("slow") || pitchCondition.toLowerCase().includes("turning") ? 160 : 175);
-    
-    // Projected runs = (runs scored so far) + (projected runs from remaining balls)
-    // Projection adjusts based on wickets lost
-    const wicketsFactor = (10 - wickets) / 10; // 1.0 at 0 wickets, 0.1 at 9 wickets
-    const standardProjectedRate = 8.5; // average runs per over in middle/death
-    const projectedRunsRemaining = (ballsRemaining / 6) * standardProjectedRate * wicketsFactor;
-    const projectedFinalScore = Math.round(runs + projectedRunsRemaining);
-    
-    // Calculate probability based on projected score vs par score
-    const scoreDiff = projectedFinalScore - parScore;
-    // Map score difference to a probability: every 5 runs above par adds ~2.5% to batting team's win probability
-    battingWinProb = 50.0 + (scoreDiff * 0.5);
-    
-    // Adjust for wickets lost
-    if (wickets >= 7 && ballsRemaining > 30) {
-      battingWinProb -= 15; // penalize heavily if top/middle order collapsed early
-      factors.push(`Severe batting collapse (${wickets} wickets down) limits setting a par score.`);
-    } else if (wickets <= 2 && ballsRemaining < 40) {
-      battingWinProb += 8; // bonus if wickets in hand for death overs
-      factors.push(`Wickets in hand (${10 - wickets} remaining) allows aggressive death overs acceleration.`);
-    }
-
-    factors.push(`Projected score is ${projectedFinalScore} vs a pitch par score of ${parScore}.`);
-    factors.push(`Current run rate is ${currentRunRate.toFixed(2)} RPO.`);
-  } 
-  
-  // --- INNINGS 2 (CHASING) WIN PROBABILITY MODEL ---
-  else if (innings === 2 && target) {
-    runsNeeded = target - runs;
+  // --- INNINGS 2 (CHASING) LOGISTIC REGRESSION MODEL ---
+  if (innings === 2 && targetVal) {
+    runsNeeded = targetVal - scoreVal;
     
     if (runsNeeded <= 0) {
       battingWinProb = 100.0;
       bowlingWinProb = 0.0;
-    } else if (wickets >= 10) {
+    } else if (wicketsVal >= 10) {
       battingWinProb = 0.0;
       bowlingWinProb = 100.0;
     } else if (ballsRemaining <= 0) {
@@ -101,51 +53,43 @@ export async function calculateWinProbability(matchState) {
     } else {
       requiredRunRate = (runsNeeded / ballsRemaining) * 6;
       
-      // Calculate baseline win probability
-      // A standard chase has a base probability that decreases as required run rate exceeds standard rates
-      // Base probability based on wickets left vs balls left
-      const wicketsLeft = 10 - wickets;
+      // Logistic Regression Formula based on RRR, CRR, wickets in hand, and overs remaining.
+      // Sigmoid Function: P(win) = 1 / (1 + exp(-y))
+      // y (log odds) = beta_0 + beta_1 * wickets_left + beta_2 * (crr - rrr) + beta_3 * interaction
+      let logOdds = -0.5; // Baseline intercept
       
-      // Calculate batting win score
-      // An index combining resource allocation: wickets left and balls left vs runs needed
-      const battingResource = (wicketsLeft / 10) * (ballsRemaining / 120);
-      const runsPerBallRequired = runsNeeded / ballsRemaining;
+      // Coefficient for resource index: Wickets remaining in hand (extremely critical)
+      logOdds += 0.65 * wicketsLeft;
       
-      // Logistic curve to estimate win probability
-      // Exponent factors: wickets remaining, required run rate relative to standard threshold (e.g. 9.0)
-      let logOdds = 0.0;
+      // Coefficient for Run Rate Difference: CRR - RRR
+      const rrDiff = currentRunRate - requiredRunRate;
+      logOdds += 0.45 * rrDiff;
       
-      // Wickets remaining has the highest impact on chasing teams
-      if (wicketsLeft >= 5) {
-        // Safe wickets in hand
-        logOdds += (wicketsLeft - 4) * 0.45;
+      // Interaction term: high required run rates squeeze the batting odds exponentially as overs run out
+      if (requiredRunRate > 10.0) {
+        logOdds -= 0.18 * (requiredRunRate - 10.0) * (20 - oversRemaining);
       } else {
-        // Crisis wickets
-        logOdds -= (5 - wicketsLeft) * 0.9;
+        logOdds += 0.06 * (10.0 - requiredRunRate) * (20 - oversRemaining);
       }
       
-      // Required run rate impact
-      const rrrGap = requiredRunRate - 8.0;
-      logOdds -= rrrGap * 0.4;
-      
-      // Specific adjustments
-      // If balls remaining are very few, required run rate becomes extremely critical
-      if (ballsRemaining < 18) {
-        // Death overs
-        const boundaryNeededIndex = requiredRunRate / 6; // e.g. 12 RRR -> 2 runs per ball
-        if (boundaryNeededIndex > 2.5 && wicketsLeft < 4) {
-          logOdds -= 1.5; // nearly impossible to chase high rates with tail-enders
-        }
+      // Environmental Pitch Factors
+      if (pitchStr.toLowerCase().includes("dew")) {
+        // Wet ball, harder to bowl / field, favors chasing batting team
+        logOdds += 0.4;
+      }
+      if (pitchStr.toLowerCase().includes("slow") || pitchStr.toLowerCase().includes("turning")) {
+        // Gripping, tacky pitch makes death over boundary hitting very difficult
+        logOdds -= 0.55;
       }
       
-      // Convert log odds to probability
-      battingWinProb = 100 / (1 + Math.exp(-logOdds));
+      // Calculate Sigmoid Probability
+      const prob = 1 / (1 + Math.exp(-logOdds));
+      battingWinProb = parseFloat((prob * 100).toFixed(1));
       
-      // Boundary conditions
-      if (battingWinProb > 99) battingWinProb = 99.0;
-      if (battingWinProb < 1) battingWinProb = 1.0;
+      // Keep boundaries realistic to prevent perfect certainty unless mathematically over
+      if (battingWinProb > 99.5) battingWinProb = 99.5;
+      if (battingWinProb < 0.5) battingWinProb = 0.5;
       
-      // Let's add readable factors
       factors.push(`${runsNeeded} runs needed off ${ballsRemaining} balls.`);
       factors.push(`Required Run Rate (RRR) is ${requiredRunRate.toFixed(2)} vs Current Run Rate (CRR) of ${currentRunRate.toFixed(2)}.`);
       factors.push(`${wicketsLeft} wickets remaining in the batting lineup.`);
@@ -156,20 +100,32 @@ export async function calculateWinProbability(matchState) {
       if (wicketsLeft <= 3) {
         factors.push("Batting team is in their tail, heavily reducing their chase capacity.");
       }
+      if (pitchStr.toLowerCase().includes("dew")) {
+        factors.push("Dew factor: Wet ball will make it difficult for spin bowlers and death bowlers to grip, favoring the batting team.");
+      }
     }
-  }
-
-  // Adjust for pitch conditions
-  if (pitchCondition.toLowerCase().includes("dew")) {
-    if (innings === 2) {
-      battingWinProb += 5; // Dew makes ball wet, harder for bowlers to grip in 2nd innings
-      factors.push("Dew factor: Wet ball will make it difficult for spin bowlers and death bowlers to grip, favoring the batting team.");
-    }
-  } else if (pitchCondition.toLowerCase().includes("slow") || pitchCondition.toLowerCase().includes("turning")) {
-    if (innings === 2 && requiredRunRate > 8.5) {
-      battingWinProb -= 6; // Hard to score quick on slow turners
-      factors.push("Pitch factor: Sticky/turning pitch makes high-rate chasing extremely challenging.");
-    }
+  } 
+  // --- INNINGS 1 LOGISTIC REGRESSION PAR SCORE MODEL ---
+  else {
+    const parScore = pitchStr.toLowerCase().includes("flat") || pitchStr.toLowerCase().includes("dew") ? 190 : 
+                     (pitchStr.toLowerCase().includes("slow") || pitchStr.toLowerCase().includes("turning") ? 160 : 175);
+    
+    const wicketsFactor = wicketsLeft / 10;
+    const standardProjectedRate = 8.5;
+    const projectedRunsRemaining = (ballsRemaining / 6) * standardProjectedRate * wicketsFactor;
+    const projectedFinalScore = Math.round(scoreVal + projectedRunsRemaining);
+    
+    const scoreDiff = projectedFinalScore - parScore;
+    let logOdds = 0.05 * scoreDiff + 0.1 * wicketsLeft - 0.5;
+    
+    const prob = 1 / (1 + Math.exp(-logOdds));
+    battingWinProb = parseFloat((prob * 100).toFixed(1));
+    
+    if (battingWinProb > 99) battingWinProb = 99.0;
+    if (battingWinProb < 1) battingWinProb = 1.0;
+    
+    factors.push(`Projected score is ${projectedFinalScore} vs a pitch par score of ${parScore}.`);
+    factors.push(`Current run rate is ${currentRunRate.toFixed(2)} RPO.`);
   }
 
   // Ensure bounds
@@ -179,9 +135,19 @@ export async function calculateWinProbability(matchState) {
   battingWinProb = parseFloat(battingWinProb.toFixed(1));
   bowlingWinProb = parseFloat((100 - battingWinProb).toFixed(1));
 
+  // Determine simple momentum
+  if (params.recentDeliveries && params.recentDeliveries.length > 0) {
+    const boundaryCount = params.recentDeliveries.filter(d => d === "4" || d === "6").length;
+    const wicketCount = params.recentDeliveries.filter(d => d === "W" || d === "w").length;
+    if (wicketCount >= 2) momentum = "Strong Bowling Momentum";
+    else if (boundaryCount >= 3) momentum = "Strong Batting Momentum";
+    else if (wicketCount === 1) momentum = "Bowling Momentum Shift";
+    else if (boundaryCount >= 1) momentum = "Batting Momentum Shift";
+  }
+
   return {
-    battingTeam,
-    bowlingTeam,
+    battingTeam: params.battingTeam || "Batting Team",
+    bowlingTeam: params.bowlingTeam || "Bowling Team",
     battingWinProb,
     bowlingWinProb,
     requiredRunRate: parseFloat(requiredRunRate.toFixed(2)),
@@ -192,3 +158,41 @@ export async function calculateWinProbability(matchState) {
     momentum
   };
 }
+
+/**
+ * Gemini tool definition object for use with @google/genai function calling
+ */
+export const calculateWinProbabilityTool = {
+  name: "calculateWinProbability",
+  description: "Calculates the T20/IPL cricket win probability percentage for the batting team using a logistic regression formula based on required run rate vs current run rate, wickets in hand, and overs remaining.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      innings: {
+        type: "INTEGER",
+        description: "The current innings of the match (1 or 2)."
+      },
+      over: {
+        type: "NUMBER",
+        description: "The number of overs bowled so far in the inning (can be a decimal, e.g. 15.0 or 15.3)."
+      },
+      score: {
+        type: "INTEGER",
+        description: "The current runs scored by the batting team."
+      },
+      wickets: {
+        type: "INTEGER",
+        description: "The number of wickets lost by the batting team (0 to 9)."
+      },
+      target: {
+        type: "INTEGER",
+        description: "The target score to chase set in the 1st innings (only required in 2nd innings)."
+      },
+      pitchFactor: {
+        type: "STRING",
+        description: "Pitch surface conditions, venue name, and environment factors like dew (e.g. 'slow turner with heavy dew')."
+      }
+    },
+    required: ["innings", "over", "score", "wickets", "pitchFactor"]
+  }
+};

@@ -4,6 +4,7 @@
  * Stats Analyst, Win Probability tool, and refines decisions based on the Devil's Advocate critique.
  */
 import { GoogleGenAI } from '@google/genai';
+import { calculateWinProbabilityTool, calculateWinProbability } from '../tools/winProbability.js';
 
 /**
  * Strategist Agent
@@ -29,9 +30,14 @@ export default async function strategist(matchState, context = {}) {
       You are the Strategist agent, the master brain called "Captain Cool" (inspired by calm, calculating leaders like MS Dhoni).
       Your goal is to formulate highly successful tactical cricket decisions (bowling rotations, batsman pacing, field setups, risk index).
       You are pragmatic, mathematically sound, psychologically sharp, and always calm under pressure.
+      
+      You have access to the 'calculateWinProbability' tool. You should invoke this tool first to obtain the precise win probability 
+      of the batting team based on the match parameters (innings, over, score, wickets, target, and pitch factors) to back your strategies with scientific data.
     `;
 
     let prompt = `
+      ${systemInstructions}
+
       **Match Context:**
       - Batting Team: ${matchState.battingTeam}
       - BowlingTeam: ${matchState.bowlingTeam}
@@ -43,9 +49,6 @@ export default async function strategist(matchState, context = {}) {
 
       **Stats Analyst Insights:**
       ${typeof statsAnalysis === 'object' ? JSON.stringify(statsAnalysis) : statsAnalysis}
-
-      **Win Probability Tool Metrics:**
-      ${winProbability ? JSON.stringify(winProbability) : "Calculating..."}
     `;
 
     if (isRefining) {
@@ -61,7 +64,7 @@ export default async function strategist(matchState, context = {}) {
       1. **Acknowledge and Pivot**: Adjust your tactic to address the critique (e.g. hold the bowler back, play defensively).
       2. **Stand Firm with Rigorous Reasoning**: Counter-argue why your original path is still the mathematically or psychologically superior choice.
 
-      Refine your strategic decision, integrating or refuting the critique.
+      Use 'calculateWinProbability' if necessary to analyze the risk-adjusted outcomes of your decision.
       `;
     } else {
       prompt += `
@@ -74,28 +77,91 @@ export default async function strategist(matchState, context = {}) {
     }
 
     prompt += `
-      Format your response as a JSON object containing:
-      - 'decision': A concise statement of your final strategy (e.g. "Instruct Kohli to anchor, rotation-strike against spin; bowling change: hold Bumrah for over 19, bowl Pathirana now.")
+      Format your final response as a JSON object containing:
+      - 'decision': A concise statement of your final strategy.
       - 'reasoning': A detailed breakdown of your strategy covering phase management, risk vs reward percentages, defensive vs offensive adjustments, and how you accounted for the stats analysis and win probability.
     `;
 
-    const response = await ai.models.generateContent({
+    // Turn 1: Query Gemini with the function tool registered
+    let response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            decision: { type: 'STRING' },
-            reasoning: { type: 'STRING' }
-          },
-          required: ['decision', 'reasoning']
-        }
+        tools: [{ functionDeclarations: [calculateWinProbabilityTool] }]
       }
     });
 
-    const result = JSON.parse(response.text.trim());
+    let resultText = "";
+
+    // Check if Gemini returned a function call request
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      const call = response.functionCalls[0];
+      if (call.name === "calculateWinProbability") {
+        console.log(`🤖 [Captain Cool Brain] Gemini invoked Tool Call: ${call.name}`, call.args);
+        
+        // Execute the JS function locally
+        const toolOutput = await calculateWinProbability(call.args);
+        
+        // Prepare turn 2 with tool response history
+        const conversationHistory = [
+          { role: 'user', parts: [{ text: prompt }] },
+          { role: 'model', parts: [{ functionCall: call }] },
+          { 
+            role: 'tool', 
+            parts: [{ 
+              functionResponse: { 
+                name: "calculateWinProbability", 
+                response: { result: toolOutput } 
+              } 
+            }] 
+          }
+        ];
+
+        // Turn 2: Request final structured strategy with resolved metrics
+        const finalResponse = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: conversationHistory,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                decision: { type: 'STRING' },
+                reasoning: { type: 'STRING' }
+              },
+              required: ['decision', 'reasoning']
+            }
+          }
+        });
+
+        resultText = finalResponse.text.trim();
+      }
+    } else {
+      // Model skipped tool execution and returned text directly
+      resultText = response.text.trim();
+      
+      // Enforce JSON format if not returned as an object
+      if (!resultText.startsWith("{")) {
+        const structuralResponse = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: `Format the following strategic decision and reasoning as clean JSON with 'decision' and 'reasoning' fields:\n\n${resultText}`,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                decision: { type: 'STRING' },
+                reasoning: { type: 'STRING' }
+              },
+              required: ['decision', 'reasoning']
+            }
+          }
+        });
+        resultText = structuralResponse.text.trim();
+      }
+    }
+
+    const result = JSON.parse(resultText);
     return {
       decision: result.decision,
       reasoning: result.reasoning
